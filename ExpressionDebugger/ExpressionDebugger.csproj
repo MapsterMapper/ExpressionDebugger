@@ -1,0 +1,29 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net40;net45;netstandard1.3</TargetFrameworks>
+    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+    <Authors>Chaowlert Chaisrichalermpol</Authors>
+    <Description>Step through debugging and generate readable script from linq expressions</Description>
+    <PackageProjectUrl>https://github.com/chaowlert/ExpressionDebugger</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/chaowlert/ExpressionDebugger</RepositoryUrl>
+    <PackageTags>expression;linq;debug</PackageTags>
+    <PackageIconUrl>http://www.fancyicons.com/free-icons/112/must-have/png/128/pause_128.png</PackageIconUrl>
+    <SignAssembly>True</SignAssembly>
+    <PublicSign Condition=" '$(OS)' != 'Windows_NT' ">true</PublicSign>
+    <AssemblyOriginatorKeyFile>ExpressionDebugger.snk</AssemblyOriginatorKeyFile>
+  </PropertyGroup>
+
+  <ItemGroup Condition=" '$(TargetFramework)' == 'net40' ">
+    <Reference Include="System" />
+  </ItemGroup>
+
+  <ItemGroup Condition=" '$(TargetFramework)' == 'net45' ">
+    <Reference Include="System" />
+  </ItemGroup>
+
+  <ItemGroup Condition=" '$(TargetFramework)' == 'netstandard1.3' ">
+    <PackageReference Include="System.Reflection.TypeExtensions" Version="4.3.0" />
+  </ItemGroup>
+
+</Project>
