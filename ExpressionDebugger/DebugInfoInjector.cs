@@ -590,38 +590,50 @@ namespace ExpressionDebugger
 
         Expression VisitConditional(ConditionalExpression node, bool shouldReturn)
         {
-            Expression test, ifTrue, ifFalse;
             if (IsInline(node))
             {
-                test = VisitGroup(node.Test, node.NodeType);
+                Expression test = VisitGroup(node.Test, node.NodeType);
                 Write(" ? ");
-                ifTrue = VisitGroup(node.IfTrue, node.NodeType);
+                Expression ifTrue = VisitGroup(node.IfTrue, node.NodeType);
                 Write(" : ");
-                ifFalse = VisitGroup(node.IfFalse, node.NodeType);
+                Expression ifFalse = VisitGroup(node.IfFalse, node.NodeType);
                 return node.Update(test, ifTrue, ifFalse);
             }
             else
             {
+                return VisitConditionalBlock(node, shouldReturn);
+            }
+        }
+
+        Expression VisitConditionalBlock(ConditionalExpression node, bool shouldReturn, bool chain = false)
+        {
+            if (chain)
+                WriteNextLine("else if (");
+            else
                 WriteNextLine("if (");
-                var position = GetPosition();
-                test = Visit(node.Test);
-                var debug = CreateDebugInfo(position);
-                Write(")");
-                Indent();
-                ifTrue = VisitBody(node.IfTrue, shouldReturn);
-                Outdent();
-                ifFalse = node.IfFalse;
-                if (node.Type == typeof(void) && node.IfFalse.NodeType != ExpressionType.Default)
+            var position = GetPosition();
+            Expression test = Visit(node.Test);
+            var debug = CreateDebugInfo(position);
+            Write(")");
+            Indent();
+            Expression ifTrue = VisitBody(node.IfTrue, shouldReturn);
+            Outdent();
+            Expression ifFalse = node.IfFalse;
+            if (node.Type == typeof(void) && node.IfFalse.NodeType != ExpressionType.Default)
+            {
+                if (node.IfFalse.NodeType == ExpressionType.Conditional)
+                    ifFalse = VisitConditionalBlock((ConditionalExpression)node.IfFalse, shouldReturn, true);
+                else
                 {
                     WriteNextLine("else");
                     Indent();
                     ifFalse = VisitBody(node.IfFalse, shouldReturn);
                     Outdent();
                 }
-                return Expression.Block(
-                    debug,
-                    Expression.Condition(test, ifTrue, ifFalse));
             }
+            return Expression.Block(
+                debug,
+                Expression.Condition(test, ifTrue, ifFalse));
         }
 
         protected override Expression VisitConditional(ConditionalExpression node)

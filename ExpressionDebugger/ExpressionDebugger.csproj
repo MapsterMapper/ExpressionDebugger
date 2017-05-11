@@ -4,7 +4,7 @@
     <TargetFrameworks>net40;net45;netstandard1.3</TargetFrameworks>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
     <Authors>Chaowlert Chaisrichalermpol</Authors>
-    <Description>Step through debugging and generate readable script from linq expressions</Description>
+    <Description>Step into debugging and generate readable script from linq expressions</Description>
     <PackageProjectUrl>https://github.com/chaowlert/ExpressionDebugger</PackageProjectUrl>
     <RepositoryUrl>https://github.com/chaowlert/ExpressionDebugger</RepositoryUrl>
     <PackageTags>expression;linq;debug</PackageTags>

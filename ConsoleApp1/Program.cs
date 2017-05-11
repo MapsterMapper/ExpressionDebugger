@@ -12,8 +12,7 @@ namespace ConsoleApp1
             var p2 = Expression.Parameter(typeof(int));
             var body = Expression.Add(p1, p2);
             var lambda = Expression.Lambda<Func<int, int, int>>(body, p1, p2);
-            var filename = "test.cs";
-            var fun = lambda.Compile(filename);
+            var fun = lambda.CompileWithDebugInfo();
             var result = fun(1, 2);
             Console.WriteLine(3);
         }

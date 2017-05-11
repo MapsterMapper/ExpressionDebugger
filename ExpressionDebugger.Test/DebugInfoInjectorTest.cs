@@ -84,6 +84,35 @@ else
         }
 
         [TestMethod]
+        public void TestConditional_Block_Chain()
+        {
+            var exp = Expression.Condition(
+                Expression.Equal(Expression.Constant(1), Expression.Constant(2)),
+                Expression.Constant(4),
+                Expression.Condition(
+                    Expression.Equal(Expression.Constant(5), Expression.Constant(6)),
+                    Expression.Constant(3),
+                    Expression.Constant(2),
+                    typeof(void)),
+                typeof(void));
+            var str = exp.ToScript();
+            Assert.AreEqual(@"
+if (1 == 2)
+{
+    4;
+}
+else if (5 == 6)
+{
+    3;
+}
+else
+{
+    2;
+}"
+            , str);
+        }
+
+        [TestMethod]
         public void TestConstant()
         {
             Expression<Func<string, char>> fn = s => s == "x" || s == null || s.IsNormalized() == false || s.GetType() == typeof(string) ? 'x' : s[0];

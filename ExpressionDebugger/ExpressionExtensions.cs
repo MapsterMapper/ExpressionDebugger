@@ -1,15 +1,19 @@
-﻿using System;
+﻿using ExpressionDebugger;
 using System.Diagnostics;
 using System.IO;
-using System.Linq.Expressions;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
 
-namespace ExpressionDebugger
+namespace System.Linq.Expressions
 {
     public static class ExpressionExtensions
     {
+        /// <summary>
+        /// Generate script text
+        /// </summary>
+        /// <param name="node">Expression</param>
+        /// <returns>Script text</returns>
         public static string ToScript(this Expression node)
         {
             var writer = new StringWriter();
@@ -17,11 +21,20 @@ namespace ExpressionDebugger
             return writer.ToString();
         }
 
-        public static T Compile<T>(this Expression<T> node, string filename)
+        /// <summary>
+        /// Compile with debugging info injected
+        /// </summary>
+        /// <typeparam name="T">Type of lambda expression</typeparam>
+        /// <param name="node">Lambda expression</param>
+        /// <param name="filename">Filename to inject source code. if omit, temp filename will be used</param>
+        /// <returns>Generated method</returns>
+        public static T CompileWithDebugInfo<T>(this Expression<T> node, string filename = null)
         {
 #if NETSTANDARD1_3
             return node.Compile();
 #else
+            if (filename == null)
+                filename = Path.GetTempFileName();
             var name = "m_" + Guid.NewGuid().ToString("N");
             var asm = AppDomain.CurrentDomain.DefineDynamicAssembly(new AssemblyName(name), AssemblyBuilderAccess.Run);
 
