@@ -7,6 +7,7 @@ using System.IO;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
 
 namespace ExpressionDebugger
@@ -35,7 +36,7 @@ namespace ExpressionDebugger
 
         public DebugInfoInjector(TextWriter writer)
         {
-            _document = Expression.SymbolDocument("unnamed.cs");
+            _document = null;
             _writer = writer;
         }
 
@@ -631,9 +632,11 @@ namespace ExpressionDebugger
                     Outdent();
                 }
             }
-            return Expression.Block(
-                debug,
-                Expression.Condition(test, ifTrue, ifFalse));
+
+            Expression condition = Expression.Condition(test, ifTrue, ifFalse, typeof(void));
+            if (debug != null)
+                condition = Expression.Block(debug, condition);
+            return condition;
         }
 
         protected override Expression VisitConditional(ConditionalExpression node)
@@ -645,7 +648,6 @@ namespace ExpressionDebugger
         {
             var value = node.Value;
 
-            Type t;
             if (value == null)
                 Write("null");
             else if (value is string)
@@ -654,17 +656,59 @@ namespace ExpressionDebugger
                 Write($"\'{value}\'");
             else if (value is bool)
                 Write(value.ToString().ToLower());
-            else if ((t = value as Type) != null)
+            else if (value is Type t)
                 Write($"typeof({Translate(t)})");
             else
             {
-                var type = value.GetType();
+                Type type = value.GetType();
                 if (type.GetTypeInfo().IsPrimitive || type == typeof(decimal))
                     Write(value.ToString());
                 else
                     Write("valueof(", Translate(type), ", \"", value.ToString(), "\")");
             }
-            return node;
+
+            if (_document == null || CanEmitConstant(value, node.Type))
+                return node;
+
+            var i = GlobalReference.GetIndex(value);
+            return Expression.Convert(
+                Expression.Call(
+                    typeof(GlobalReference).GetMethod(nameof(GlobalReference.GetObject)),
+                    Expression.Constant(i)),
+                node.Type);
+        }
+
+        private static bool CanEmitConstant(object value, Type type)
+        {
+            if (value == null
+                || type.GetTypeInfo().IsPrimitive
+                || type == typeof(string)
+                || type == typeof(decimal))
+                return true;
+
+            if (value is Type t)
+                return ShouldLdtoken(t);
+
+            if (value is MethodBase mb)
+                return ShouldLdtoken(mb);
+
+            return false;
+        }
+
+        private static bool ShouldLdtoken(Type t)
+        {
+            return t is TypeBuilder
+                || t.IsGenericParameter
+                || t.IsVisible;
+        }
+
+        private static bool ShouldLdtoken(MethodBase mb)
+        {
+            if (mb is DynamicMethod)
+                return false;
+
+            Type dt = mb.DeclaringType;
+            return dt == null || ShouldLdtoken(dt);
         }
 
         protected override Expression VisitDefault(DefaultExpression node)
@@ -683,30 +727,26 @@ namespace ExpressionDebugger
 
         protected override Expression VisitDynamic(DynamicExpression node)
         {
-            var convert = node.Binder as ConvertBinder;
-            if (convert != null)
+            if (node.Binder is ConvertBinder convert)
             {
                 Write("(", Translate(convert.Type), ")");
                 var expr = VisitGroup(node.Arguments[0], ExpressionType.Convert);
-                return Update(node, new[] {expr}.Concat(node.Arguments.Skip(1)));
+                return Update(node, new[] { expr }.Concat(node.Arguments.Skip(1)));
             }
-            var getMember = node.Binder as GetMemberBinder;
-            if (getMember != null)
+            if (node.Binder is GetMemberBinder getMember)
             {
                 var expr = VisitGroup(node.Arguments[0], ExpressionType.MemberAccess);
                 Write(".", getMember.Name);
                 return Update(node, new[] { expr }.Concat(node.Arguments.Skip(1)));
             }
-            var setMember = node.Binder as SetMemberBinder;
-            if (setMember != null)
+            if (node.Binder is SetMemberBinder setMember)
             {
                 var expr = VisitGroup(node.Arguments[0], ExpressionType.MemberAccess);
                 Write(".", setMember.Name, " = ");
                 var value = VisitGroup(node.Arguments[1], ExpressionType.Assign);
                 return Update(node, new[] { expr, value }.Concat(node.Arguments.Skip(2)));
             }
-            var deleteMember = node.Binder as DeleteMemberBinder;
-            if (deleteMember != null)
+            if (node.Binder is DeleteMemberBinder deleteMember)
             {
                 var expr = VisitGroup(node.Arguments[0], ExpressionType.MemberAccess);
                 Write(".", deleteMember.Name, " = null");
@@ -733,8 +773,7 @@ namespace ExpressionDebugger
                 Write(" = null");
                 return Update(node, new[] { expr }.Concat(args));
             }
-            var invokeMember = node.Binder as InvokeMemberBinder;
-            if (invokeMember != null)
+            if (node.Binder is InvokeMemberBinder invokeMember)
             {
                 var expr = VisitGroup(node.Arguments[0], ExpressionType.MemberAccess);
                 Write(".", invokeMember.Name);
@@ -754,14 +793,12 @@ namespace ExpressionDebugger
                 var args = VisitArguments("(", node.Arguments.Skip(1).ToList(), Visit, ")");
                 return Update(node, new[] { expr }.Concat(args));
             }
-            var unary = node.Binder as UnaryOperationBinder;
-            if (unary != null)
+            if (node.Binder is UnaryOperationBinder unary)
             {
                 var expr = VisitUnary(node.Arguments[0], unary.Operation);
                 return Update(node, new[] { expr }.Concat(node.Arguments.Skip(1)));
             }
-            var binary = node.Binder as BinaryOperationBinder;
-            if (binary != null)
+            if (node.Binder is BinaryOperationBinder binary)
             {
                 var left = VisitGroup(node.Arguments[0], node.NodeType);
                 Write(" ", Translate(binary.Operation), " ");
@@ -1013,9 +1050,8 @@ namespace ExpressionDebugger
             if (node.Body.NodeType == ExpressionType.Conditional)
             {
                 var condExpr = (ConditionalExpression) node.Body;
-                var @break = condExpr.IfFalse as GotoExpression;
 
-                if (@break != null && @break.Target == node.BreakLabel)
+                if (condExpr.IfFalse is GotoExpression @break && @break.Target == node.BreakLabel)
                 {
                     WriteNextLine("while (");
                     var position = GetPosition();
@@ -1025,11 +1061,13 @@ namespace ExpressionDebugger
                     Indent();
                     body = VisitBody(condExpr.IfTrue);
                     Outdent();
+
+                    Expression condition = Expression.Condition(test, body, @break, typeof(void));
+                    if (debug != null)
+                        condition = Expression.Block(debug, condition);
                     return Expression.Loop(
-                        Expression.Block(
-                            debug,
-                            Expression.Condition(test, body, @break)),
-                        node.BreakLabel, 
+                        condition,
+                        node.BreakLabel,
                         node.ContinueLabel);
                 }
             }

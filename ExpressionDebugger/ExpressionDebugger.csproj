@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net40;net45;netstandard1.3</TargetFrameworks>
+    <TargetFrameworks>net45</TargetFrameworks>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
     <Authors>Chaowlert Chaisrichalermpol</Authors>
     <Description>Step into debugging and generate readable script from linq expressions</Description>
@@ -12,6 +12,7 @@
     <SignAssembly>True</SignAssembly>
     <PublicSign Condition=" '$(OS)' != 'Windows_NT' ">true</PublicSign>
     <AssemblyOriginatorKeyFile>ExpressionDebugger.snk</AssemblyOriginatorKeyFile>
+    <Version>1.0.1</Version>
   </PropertyGroup>
 
   <ItemGroup Condition=" '$(TargetFramework)' == 'net40' ">

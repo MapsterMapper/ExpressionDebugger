@@ -30,13 +30,19 @@ namespace System.Linq.Expressions
         /// <returns>Generated method</returns>
         public static T CompileWithDebugInfo<T>(this Expression<T> node, string filename = null)
         {
+            return (T)(object)CompileWithDebugInfo((LambdaExpression)node, filename);
+        }
+
+        public static Delegate CompileWithDebugInfo(this LambdaExpression node, string filename = null)
+        {
 #if NETSTANDARD1_3
             return node.Compile();
 #else
+
             if (filename == null)
                 filename = Path.GetTempFileName();
-            var name = "m_" + Guid.NewGuid().ToString("N");
-            var asm = AppDomain.CurrentDomain.DefineDynamicAssembly(new AssemblyName(name), AssemblyBuilderAccess.Run);
+            var assemblyName = "m_" + Guid.NewGuid().ToString("N");
+            var asm = AppDomain.CurrentDomain.DefineDynamicAssembly(new AssemblyName(assemblyName), AssemblyBuilderAccess.Run);
 
             var daType = typeof(DebuggableAttribute);
             var daCtor = daType.GetConstructor(new[] { typeof(DebuggableAttribute.DebuggingModes) });
@@ -45,7 +51,7 @@ namespace System.Linq.Expressions
                 DebuggableAttribute.DebuggingModes.Default });
             asm.SetCustomAttribute(daBuilder);
 
-            var mod = asm.DefineDynamicModule(name, true);
+            var mod = asm.DefineDynamicModule(assemblyName, true);
             var type = mod.DefineType("Program", TypeAttributes.Public | TypeAttributes.Class);
             var meth = type.DefineMethod("Main", MethodAttributes.HideBySig | MethodAttributes.Public | MethodAttributes.Static);
 
@@ -59,7 +65,7 @@ namespace System.Linq.Expressions
 
             var newtype = type.CreateType();
 
-            return (T)(object)Delegate.CreateDelegate(typeof(T), newtype.GetMethod("Main"));
+            return Delegate.CreateDelegate(node.Type, newtype.GetMethod("Main"));
 #endif
         }
     }
