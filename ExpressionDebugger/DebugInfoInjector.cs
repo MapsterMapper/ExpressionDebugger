@@ -543,13 +543,27 @@ namespace ExpressionDebugger
 
         Expression VisitBlock(BlockExpression node, bool shouldReturn)
         {
+            var assignedVariables = new HashSet<ParameterExpression>(node.Expressions
+                .Where(exp => exp.NodeType == ExpressionType.Assign)
+                .Select(exp => ((BinaryExpression)exp).Left)
+                .Where(exp => exp.NodeType == ExpressionType.Parameter)
+                .Select(exp => (ParameterExpression)exp));
+
             var list = new List<ParameterExpression>();
+            var hasDeclaration = false;
             foreach (var variable in node.Variables)
             {
-                var arg = VisitNextLine(Translate(variable.Type) + " ", variable, ";");
+                Expression arg;
+                if (assignedVariables.Contains(variable))
+                    arg = VisitParameter(variable, false);
+                else
+                {
+                    arg = VisitNextLine(Translate(variable.Type) + " ", variable, ";");
+                    hasDeclaration = true;
+                }
                 list.Add((ParameterExpression)arg);
             }
-            if (node.Variables.Count > 0)
+            if (hasDeclaration)
                 WriteLine();
 
             var lines = VisitBlockBody(node.Expressions, shouldReturn && node.Type != typeof (void));
@@ -664,7 +678,7 @@ namespace ExpressionDebugger
                 if (type.GetTypeInfo().IsPrimitive || type == typeof(decimal))
                     Write(value.ToString());
                 else
-                    Write("valueof(", Translate(type), ", \"", value.ToString(), "\")");
+                    Write("valueof(", Translate(type), ")");
             }
 
             if (_document == null || CanEmitConstant(value, node.Type))
@@ -811,7 +825,7 @@ namespace ExpressionDebugger
         }
 #endif
 
-        IList<T> VisitArguments<T>(string open, IList<T> args, Func<T, T> func, string end, bool wrap = false) where T : class 
+        IList<T> VisitArguments<T>(string open, IList<T> args, Func<T, T> func, string end, bool wrap = false, IList<string> prefix = null) where T : class 
         {
             Write(open);
             if (wrap)
@@ -824,6 +838,8 @@ namespace ExpressionDebugger
             {
                 if (wrap)
                     WriteLine();
+                if (prefix != null)
+                    Write(prefix[i]);
                 var arg = func(args[i]);
                 changed |= arg != args[i];
                 list.Add(arg);
@@ -1142,16 +1158,18 @@ namespace ExpressionDebugger
             if (node.Method.DeclaringType != null)
                 Write(".");
             Write(node.Method.Name);
+            var prefix = node.Method.GetParameters()
+                .Select(p => p.IsOut ? "out " : p.ParameterType.IsByRef ? "ref " : "");
 
             if (isExtension)
             {
-                var args = VisitArguments("(", node.Arguments.Skip(1).ToList(), Visit, ")");
+                var args = VisitArguments("(", node.Arguments.Skip(1).ToList(), Visit, ")", prefix: prefix.Skip(1).ToList());
                 var newArgs = new[] {arg0}.Concat(args).ToList();
                 return newArgs.SequenceEqual(node.Arguments) ? node : node.Update(obj, newArgs);
             }
             else
             {
-                var args = VisitArguments("(", node.Arguments, Visit, ")");
+                var args = VisitArguments("(", node.Arguments, Visit, ")", prefix: prefix.ToList());
                 return node.Update(obj, args);
             }
         }
@@ -1274,8 +1292,28 @@ namespace ExpressionDebugger
 
         protected override Expression VisitParameter(ParameterExpression node)
         {
+            return VisitParameter(node, true);
+        }
+
+        HashSet<ParameterExpression> _pendingVariables;
+        private Expression VisitParameter(ParameterExpression node, bool write)
+        {
+            if (_pendingVariables == null)
+                _pendingVariables = new HashSet<ParameterExpression>();
+
             var name = GetName(node);
-            Write(name);
+            if (write)
+            {
+                if (_pendingVariables.Contains(node))
+                {
+                    Write(Translate(node.Type), " ", name);
+                    _pendingVariables.Remove(node);
+                }
+                else
+                    Write(name);
+            }
+            else
+                _pendingVariables.Add(node);
 
             if (!string.IsNullOrEmpty(node.Name))
                 return node;
@@ -1412,7 +1450,8 @@ namespace ExpressionDebugger
             {
                 case ExpressionType.Convert:
                 case ExpressionType.ConvertChecked:
-                    Write("(", Translate(node.Type), ")");
+                    if (!node.Type.IsAssignableFrom(node.Operand.Type))
+                        Write("(", Translate(node.Type), ")");
                     break;
 
                 case ExpressionType.Throw:
