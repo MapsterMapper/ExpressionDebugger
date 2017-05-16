@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 #if !NETSTANDARD1_3
 using System.Dynamic;
 #endif
@@ -12,7 +13,7 @@ using System.Runtime.CompilerServices;
 
 namespace ExpressionDebugger
 {
-    internal class DebugInfoInjector : ExpressionVisitor, IDisposable
+    public class DebugInfoInjector : ExpressionVisitor, IDisposable
     {
         private const int Tabsize = 4;
         private readonly SymbolDocumentInfo _document;
@@ -373,6 +374,7 @@ namespace ExpressionDebugger
                 Write(" ", Translate(node.NodeType), " ");
                 right = VisitGroup(node.Right, node.NodeType, true);
             }
+
             return node.Update(left, node.Conversion, right);
         }
 
@@ -543,11 +545,12 @@ namespace ExpressionDebugger
 
         Expression VisitBlock(BlockExpression node, bool shouldReturn)
         {
-            var assignedVariables = new HashSet<ParameterExpression>(node.Expressions
+            var assignedVariables = node.Expressions
                 .Where(exp => exp.NodeType == ExpressionType.Assign)
                 .Select(exp => ((BinaryExpression)exp).Left)
                 .Where(exp => exp.NodeType == ExpressionType.Parameter)
-                .Select(exp => (ParameterExpression)exp));
+                .Select(exp => (ParameterExpression)exp)
+                .ToHashSet();
 
             var list = new List<ParameterExpression>();
             var hasDeclaration = false;
@@ -681,48 +684,7 @@ namespace ExpressionDebugger
                     Write("valueof(", Translate(type), ")");
             }
 
-            if (_document == null || CanEmitConstant(value, node.Type))
-                return node;
-
-            var i = GlobalReference.GetIndex(value);
-            return Expression.Convert(
-                Expression.Call(
-                    typeof(GlobalReference).GetMethod(nameof(GlobalReference.GetObject)),
-                    Expression.Constant(i)),
-                node.Type);
-        }
-
-        private static bool CanEmitConstant(object value, Type type)
-        {
-            if (value == null
-                || type.GetTypeInfo().IsPrimitive
-                || type == typeof(string)
-                || type == typeof(decimal))
-                return true;
-
-            if (value is Type t)
-                return ShouldLdtoken(t);
-
-            if (value is MethodBase mb)
-                return ShouldLdtoken(mb);
-
-            return false;
-        }
-
-        private static bool ShouldLdtoken(Type t)
-        {
-            return t is TypeBuilder
-                || t.IsGenericParameter
-                || t.IsVisible;
-        }
-
-        private static bool ShouldLdtoken(MethodBase mb)
-        {
-            if (mb is DynamicMethod)
-                return false;
-
-            Type dt = mb.DeclaringType;
-            return dt == null || ShouldLdtoken(dt);
+            return node;
         }
 
         protected override Expression VisitDefault(DefaultExpression node)
@@ -951,6 +913,8 @@ namespace ExpressionDebugger
                 : VisitGroup(node.Object, node.NodeType);
 
             var args = VisitArguments("[", node.Arguments, Visit, "]");
+
+            //TODO:
             return node.Update(obj, args);
         }
 
@@ -1478,6 +1442,36 @@ namespace ExpressionDebugger
                     break;
             }
             return node.Update(operand);
+        }
+
+        public Delegate Compile(LambdaExpression node)
+        {
+#if NETSTANDARD1_3
+            return node.Compile();
+#else
+
+            var assemblyName = "m_" + Guid.NewGuid().ToString("N");
+            var asm = AppDomain.CurrentDomain.DefineDynamicAssembly(new AssemblyName(assemblyName), AssemblyBuilderAccess.Run);
+
+            var daType = typeof(DebuggableAttribute);
+            var daCtor = daType.GetConstructor(new[] { typeof(DebuggableAttribute.DebuggingModes) });
+            var daBuilder = new CustomAttributeBuilder(daCtor, new object[] {
+                DebuggableAttribute.DebuggingModes.DisableOptimizations |
+                DebuggableAttribute.DebuggingModes.Default });
+            asm.SetCustomAttribute(daBuilder);
+
+            var mod = asm.DefineDynamicModule(assemblyName, true);
+            var type = mod.DefineType("Program", TypeAttributes.Public | TypeAttributes.Class);
+            var meth = type.DefineMethod("Main", MethodAttributes.HideBySig | MethodAttributes.Public | MethodAttributes.Static);
+
+            var injected = (LambdaExpression)Inject(node);
+            var gen = DebugInfoGenerator.CreatePdbGenerator();
+            injected.CompileToMethod(meth, gen);
+
+            var newtype = type.CreateType();
+
+            return Delegate.CreateDelegate(node.Type, newtype.GetMethod("Main"));
+#endif
         }
 
         enum LambdaType
