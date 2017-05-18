@@ -1444,24 +1444,44 @@ namespace ExpressionDebugger
             return node.Update(operand);
         }
 
-        public Delegate Compile(LambdaExpression node)
+        static ModuleBuilder mod;
+        public Delegate Compile(LambdaExpression node, AssemblyName an = null)
         {
 #if NETSTANDARD1_3
             return node.Compile();
 #else
 
-            var assemblyName = "m_" + Guid.NewGuid().ToString("N");
-            var asm = AppDomain.CurrentDomain.DefineDynamicAssembly(new AssemblyName(assemblyName), AssemblyBuilderAccess.Run);
+            if (mod == null)
+            {
+                if (an == null)
+                {
+                    StrongNameKeyPair kp;
+                    // Getting this from a resource would be a good idea.
+                    using (var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("ExpressionDebugger.mock.keys"))
+                    using (var mem = new MemoryStream())
+                    {
+                        stream.CopyTo(mem);
+                        mem.Position = 0;
+                        kp = new StrongNameKeyPair(mem.ToArray());
+                    }
+                    var name = "ExpressionDebugger.Dynamic";
+                    an = new AssemblyName(name) { KeyPair = kp };
+                }
 
-            var daType = typeof(DebuggableAttribute);
-            var daCtor = daType.GetConstructor(new[] { typeof(DebuggableAttribute.DebuggingModes) });
-            var daBuilder = new CustomAttributeBuilder(daCtor, new object[] {
-                DebuggableAttribute.DebuggingModes.DisableOptimizations |
-                DebuggableAttribute.DebuggingModes.Default });
-            asm.SetCustomAttribute(daBuilder);
+                var asm = AppDomain.CurrentDomain.DefineDynamicAssembly(an, AssemblyBuilderAccess.Run);
 
-            var mod = asm.DefineDynamicModule(assemblyName, true);
-            var type = mod.DefineType("Program", TypeAttributes.Public | TypeAttributes.Class);
+                var daType = typeof(DebuggableAttribute);
+                var daCtor = daType.GetConstructor(new[] { typeof(DebuggableAttribute.DebuggingModes) });
+                var daBuilder = new CustomAttributeBuilder(daCtor,
+                    new object[] {
+                        DebuggableAttribute.DebuggingModes.DisableOptimizations |
+                        DebuggableAttribute.DebuggingModes.Default
+                    });
+                asm.SetCustomAttribute(daBuilder);
+                mod = asm.DefineDynamicModule(an.Name, true);
+            }
+
+            var type = mod.DefineType("T" + Guid.NewGuid().ToString("N"), TypeAttributes.Public | TypeAttributes.Class);
             var meth = type.DefineMethod("Main", MethodAttributes.HideBySig | MethodAttributes.Public | MethodAttributes.Static);
 
             var injected = (LambdaExpression)Inject(node);

@@ -27,4 +27,12 @@
     <PackageReference Include="System.Reflection.TypeExtensions" Version="4.3.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Remove="mock.keys" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="mock.keys" />
+  </ItemGroup>
+
 </Project>
