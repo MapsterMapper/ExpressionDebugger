@@ -506,6 +506,9 @@ namespace ExpressionDebugger
             if (node.NodeType == ExpressionType.Block)
                 return VisitBlock((BlockExpression) node, shouldReturn);
 
+            if (node.NodeType == ExpressionType.Default && node.Type == typeof(void))
+                return node;
+
             var lines = VisitBlockBody(new List<Expression> {node}, shouldReturn);
             return Expression.Block(lines);
         }
