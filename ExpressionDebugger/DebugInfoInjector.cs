@@ -279,6 +279,15 @@ namespace ExpressionDebugger
             WriteNextLine("}");
         }
 
+        DebugInfoExpression OutdentWithDebugInfo()
+        {
+            _indentLevel--;
+            WriteLine();
+            var position = GetPosition();
+            Write("}");
+            return CreateDebugInfo(position);
+        }
+
         Expression VisitGroup(Expression node, ExpressionType parentNodeType, bool isRightNode = false)
         {
             Expression result;
@@ -520,6 +529,9 @@ namespace ExpressionDebugger
             for (int i = 0; i < exprs.Count; i++)
             {
                 var expr = exprs[i];
+                if (expr.NodeType == ExpressionType.Default && expr.Type == typeof(void))
+                    continue;
+
                 var isInline = IsInline(expr);
                 if (isInline || i > 0)
                     WriteLine();
@@ -638,10 +650,10 @@ namespace ExpressionDebugger
             Write(")");
             Indent();
             Expression ifTrue = VisitBody(node.IfTrue, shouldReturn);
-            Outdent();
             Expression ifFalse = node.IfFalse;
-            if (node.Type == typeof(void) && node.IfFalse.NodeType != ExpressionType.Default)
+            if (node.IfFalse.NodeType != ExpressionType.Default)
             {
+                Outdent();
                 if (node.IfFalse.NodeType == ExpressionType.Conditional)
                     ifFalse = VisitConditionalBlock((ConditionalExpression)node.IfFalse, shouldReturn, true);
                 else
@@ -649,14 +661,14 @@ namespace ExpressionDebugger
                     WriteNextLine("else");
                     Indent();
                     ifFalse = VisitBody(node.IfFalse, shouldReturn);
-                    Outdent();
+                    OutdentWithDebugInfo();
                 }
             }
+            else
+                ifFalse = OutdentWithDebugInfo() ?? ifFalse;
 
             Expression condition = Expression.Condition(test, ifTrue, ifFalse, typeof(void));
-            if (debug != null)
-                condition = Expression.Block(debug, condition);
-            return condition;
+            return CreateBlock(debug, condition);
         }
 
         protected override Expression VisitConditional(ConditionalExpression node)
@@ -911,7 +923,7 @@ namespace ExpressionDebugger
 
         protected override Expression VisitIndex(IndexExpression node)
         {
-            var obj = node.Indexer != null 
+            var obj = node.Indexer != null && node.Indexer.DeclaringType.GetCustomAttribute<DefaultMemberAttribute>()?.MemberName != node.Indexer.Name
                 ? VisitMember(node.Object, node, node.Indexer) 
                 : VisitGroup(node.Object, node.NodeType);
 
@@ -1043,11 +1055,11 @@ namespace ExpressionDebugger
                     Write(")");
                     Indent();
                     body = VisitBody(condExpr.IfTrue);
-                    Outdent();
+                    var outDebug = OutdentWithDebugInfo();
+                    var outBreak = CreateBlock(outDebug, @break);
 
-                    Expression condition = Expression.Condition(test, body, @break, typeof(void));
-                    if (debug != null)
-                        condition = Expression.Block(debug, condition);
+                    Expression condition = Expression.Condition(test, body, outBreak, typeof(void));
+                    condition = CreateBlock(debug, condition);
                     return Expression.Loop(
                         condition,
                         node.BreakLabel,
@@ -1303,7 +1315,11 @@ namespace ExpressionDebugger
 
         Expression VisitSwitch(SwitchExpression node, bool shouldReturn)
         {
-            var value = VisitNextLine("switch (", node.SwitchValue, ")");
+            WriteNextLine("switch (");
+            var position = GetPosition();
+            var value = Visit(node.SwitchValue);
+            var debug = CreateDebugInfo(position);
+            Write(")");
             Indent();
 
             var cases = node.Cases.Select(c => VisitSwitchCase(c, shouldReturn)).ToList();
@@ -1313,12 +1329,27 @@ namespace ExpressionDebugger
                 WriteNextLine("default:");
                 _indentLevel++;
                 @default = VisitBody(node.DefaultBody, shouldReturn);
+                Expression innerDebug = null;
                 if (!shouldReturn)
-                    WriteNextLine("break;");
+                {
+                    WriteLine();
+                    var innerPos = GetPosition();
+                    Write("break;");
+                    innerDebug = CreateDebugInfo(innerPos);
+                }
                 _indentLevel--;
+                var outDebug = OutdentWithDebugInfo();
+                @default = CreateBlock(@default, innerDebug, outDebug);
             }
-            Outdent();
-            return node.Update(value, cases, @default);
+            else
+                @default = OutdentWithDebugInfo();
+            node = node.Update(value, cases, @default);
+            return CreateBlock(debug, node);
+        }
+
+        private static BlockExpression CreateBlock(params Expression[] exprs)
+        {
+            return Expression.Block(exprs.Where(expr => expr != null));
         }
 
         protected override Expression VisitSwitch(SwitchExpression node)
@@ -1332,7 +1363,13 @@ namespace ExpressionDebugger
             _indentLevel++;
             var body = VisitBody(node.Body, shouldReturn);
             if (!shouldReturn)
-                WriteNextLine("break;");
+            {
+                WriteLine();
+                var position = GetPosition();
+                Write("break;");
+                var debug = CreateDebugInfo(position);
+                body = CreateBlock(body, debug);
+            }
             _indentLevel--;
             return node.Update(values, body);
         }
