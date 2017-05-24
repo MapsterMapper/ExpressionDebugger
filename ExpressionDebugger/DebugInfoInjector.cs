@@ -1484,7 +1484,9 @@ namespace ExpressionDebugger
             return node.Update(operand);
         }
 
+#if !NETSTANDARD1_3
         static ModuleBuilder mod;
+#endif
         public Delegate Compile(LambdaExpression node, AssemblyName an = null)
         {
 #if NETSTANDARD1_3
