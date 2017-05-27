@@ -1,4 +1,4 @@
-![Icon](http://www.fancyicons.com/free-icons/112/must-have/png/128/pause_128.png)
+![Icon](https://cloud.githubusercontent.com/assets/5763993/26522656/41e28a6e-432f-11e7-9cae-7856f927d1a1.png)
 
 # ExpressionDebugger
 Step into debugging and generate readable script from linq expressions
