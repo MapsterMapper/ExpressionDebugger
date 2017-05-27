@@ -5,7 +5,7 @@ Step into debugging and generate readable script from linq expressions
 
 ### Get it
 ```
-PM> Install-Package Mapster
+PM> Install-Package ExpressionDebugger
 ```
 
 ### Get readable script
@@ -25,4 +25,4 @@ In order to step-into debugging, make sure you turn off just my code feature.
 ![turn off just my code](https://cloud.githubusercontent.com/assets/5763993/23740682/47608676-04d7-11e7-842d-77c18a459515.png)
 
 #### Net Core support
-Currently, step-info debugging is working only in .NET 4.x. .NET Core doesn't support this feature yet.
+Currently, step-into debugging is working only in .NET 4.x. .NET Core doesn't support this feature yet.
