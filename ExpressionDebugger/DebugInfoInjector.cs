@@ -26,7 +26,7 @@ namespace ExpressionDebugger
         private Dictionary<object, int> _ids;
         private Dictionary<ParameterExpression, ParameterExpression> _params;
         private TextWriter _appendWriter;
-        private HashSet<LambdaExpression> _visitedLambda; 
+        private HashSet<LambdaExpression> _visitedLambda;
 
         public DebugInfoInjector(string filename)
         {
@@ -41,7 +41,7 @@ namespace ExpressionDebugger
             _writer = writer;
         }
 
-        public Expression Inject(Expression node)
+        public virtual Expression Inject(Expression node)
         {
             var lambda = node as LambdaExpression;
             var result = node.NodeType == ExpressionType.Lambda 
@@ -1497,17 +1497,8 @@ namespace ExpressionDebugger
             {
                 if (an == null)
                 {
-                    StrongNameKeyPair kp;
-                    // Getting this from a resource would be a good idea.
-                    using (var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("ExpressionDebugger.mock.keys"))
-                    using (var mem = new MemoryStream())
-                    {
-                        stream.CopyTo(mem);
-                        mem.Position = 0;
-                        kp = new StrongNameKeyPair(mem.ToArray());
-                    }
                     var name = "ExpressionDebugger.Dynamic";
-                    an = new AssemblyName(name) { KeyPair = kp };
+                    an = new AssemblyName(name);
                 }
 
                 var asm = AppDomain.CurrentDomain.DefineDynamicAssembly(an, AssemblyBuilderAccess.Run);

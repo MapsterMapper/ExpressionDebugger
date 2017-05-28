@@ -8,11 +8,13 @@
     <PackageProjectUrl>https://github.com/chaowlert/ExpressionDebugger</PackageProjectUrl>
     <RepositoryUrl>https://github.com/chaowlert/ExpressionDebugger</RepositoryUrl>
     <PackageTags>expression;linq;debug</PackageTags>
-    <PackageIconUrl>http://www.fancyicons.com/free-icons/112/must-have/png/128/pause_128.png</PackageIconUrl>
+    <PackageIconUrl>https://cloud.githubusercontent.com/assets/5763993/26522656/41e28a6e-432f-11e7-9cae-7856f927d1a1.png</PackageIconUrl>
     <SignAssembly>True</SignAssembly>
     <PublicSign Condition=" '$(OS)' != 'Windows_NT' ">true</PublicSign>
     <AssemblyOriginatorKeyFile>ExpressionDebugger.snk</AssemblyOriginatorKeyFile>
-    <Version>1.0.2</Version>
+    <Version>1.0.5</Version>
+    <FileVersion>1.0.5.0</FileVersion>
+    <AssemblyVersion>1.0.5.0</AssemblyVersion>
   </PropertyGroup>
 
   <ItemGroup Condition=" '$(TargetFramework)' == 'net40' ">
@@ -25,10 +27,6 @@
 
   <ItemGroup Condition=" '$(TargetFramework)' == 'netstandard1.3' ">
     <PackageReference Include="System.Reflection.TypeExtensions" Version="4.3.0" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <EmbeddedResource Include="mock.keys" />
   </ItemGroup>
 
 </Project>
