@@ -696,7 +696,7 @@ namespace ExpressionDebugger
                 if (type.GetTypeInfo().IsPrimitive || type == typeof(decimal))
                     Write(value.ToString());
                 else
-                    Write("valueof(", Translate(type), ")");
+                    Write("valueof(", Translate(type), ", \"", value.ToString(), "\")");
             }
 
             return node;

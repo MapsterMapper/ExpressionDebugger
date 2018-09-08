@@ -6,14 +6,11 @@ using System.Linq.Expressions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Microsoft.CSharp.RuntimeBinder;
 
-namespace ExpressionDebugger.Test
-{
+namespace ExpressionDebugger.Test {
     [TestClass]
-    public class DebugInfoInjectorTest
-    {
+    public class DebugInfoInjectorTest {
         [TestMethod]
-        public void TestBinary()
-        {
+        public void TestBinary() {
             Expression<Func<int, int, int>> fn = (a, b) => a + b;
             var str = fn.ToScript();
             Assert.AreEqual(
@@ -25,8 +22,7 @@ namespace ExpressionDebugger.Test
         }
 
         [TestMethod]
-        public void TestBinary_ArrayIndex()
-        {
+        public void TestBinary_ArrayIndex() {
             Expression<Func<int[], int>> fn = a => a[0];
             var str = fn.ToScript();
             Assert.AreEqual(
@@ -38,8 +34,7 @@ namespace ExpressionDebugger.Test
         }
 
         [TestMethod]
-        public void TestBlock()
-        {
+        public void TestBlock() {
             var p1 = Expression.Variable(typeof(int));
             var block = Expression.Block(new[] { p1 }, Expression.Add(p1, p1));
             var str = block.ToScript();
@@ -50,8 +45,7 @@ p1 + p1;", str);
         }
 
         [TestMethod]
-        public void Test_Conditional()
-        {
+        public void Test_Conditional() {
             Expression<Func<int, int>> fn = a => a < 0 ? a - 1 : a + 1;
             var str = fn.ToScript();
             Assert.AreEqual(
@@ -63,8 +57,7 @@ p1 + p1;", str);
         }
 
         [TestMethod]
-        public void TestConditional_Block()
-        {
+        public void TestConditional_Block() {
             var exp = Expression.Condition(
                 Expression.Equal(Expression.Constant(1), Expression.Constant(2)),
                 Expression.Constant(4),
@@ -84,8 +77,7 @@ else
         }
 
         [TestMethod]
-        public void TestConditional_Block_Chain()
-        {
+        public void TestConditional_Block_Chain() {
             var exp = Expression.Condition(
                 Expression.Equal(Expression.Constant(1), Expression.Constant(2)),
                 Expression.Constant(4),
@@ -113,8 +105,7 @@ else
         }
 
         [TestMethod]
-        public void TestConstant()
-        {
+        public void TestConstant() {
             Expression<Func<string, char>> fn = s => s == "x" || s == null || s.IsNormalized() == false || s.GetType() == typeof(string) ? 'x' : s[0];
             var str = fn.ToScript();
             Assert.AreEqual(
@@ -126,14 +117,14 @@ else
         }
 
         [TestMethod]
-        public void TestConstant_DateTime()
-        {
+        public void TestConstant_DateTime() {
             var now = DateTime.Now;
             var expr = Expression.Constant(now);
             var script = expr.ToScript();
             Assert.AreEqual($"valueof(DateTime, \"{now}\")", script);
         }
 
+#if !NETCOREAPP
         [TestMethod]
         public void TestDynamic()
         {
@@ -200,6 +191,7 @@ p1(2);
 p1 + 3;"
                 , str);
         }
+#endif
 
         [TestMethod]
         public void TestDefault()
