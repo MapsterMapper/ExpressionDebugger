@@ -6,15 +6,18 @@ using System.Linq.Expressions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Microsoft.CSharp.RuntimeBinder;
 
-namespace ExpressionDebugger.Test {
+namespace ExpressionDebugger.Test
+{
     [TestClass]
-    public class DebugInfoInjectorTest {
+    public class DebugInfoInjectorTest
+    {
         [TestMethod]
-        public void TestBinary() {
+        public void TestBinary()
+        {
             Expression<Func<int, int, int>> fn = (a, b) => a + b;
             var str = fn.ToScript();
-            Assert.AreEqual(
-@"int Main(int a, int b)
+            Assert.AreEqual(@"
+public int Main(int a, int b)
 {
     return a + b;
 }"
@@ -22,11 +25,12 @@ namespace ExpressionDebugger.Test {
         }
 
         [TestMethod]
-        public void TestBinary_ArrayIndex() {
+        public void TestBinary_ArrayIndex()
+        {
             Expression<Func<int[], int>> fn = a => a[0];
             var str = fn.ToScript();
-            Assert.AreEqual(
-@"int Main(int[] a)
+            Assert.AreEqual(@"
+public int Main(int[] a)
 {
     return a[0];
 }"
@@ -34,7 +38,8 @@ namespace ExpressionDebugger.Test {
         }
 
         [TestMethod]
-        public void TestBlock() {
+        public void TestBlock()
+        {
             var p1 = Expression.Variable(typeof(int));
             var block = Expression.Block(new[] { p1 }, Expression.Add(p1, p1));
             var str = block.ToScript();
@@ -45,11 +50,12 @@ p1 + p1;", str);
         }
 
         [TestMethod]
-        public void Test_Conditional() {
+        public void Test_Conditional()
+        {
             Expression<Func<int, int>> fn = a => a < 0 ? a - 1 : a + 1;
             var str = fn.ToScript();
-            Assert.AreEqual(
-@"int Main(int a)
+            Assert.AreEqual(@"
+public int Main(int a)
 {
     return a < 0 ? a - 1 : a + 1;
 }"
@@ -57,7 +63,8 @@ p1 + p1;", str);
         }
 
         [TestMethod]
-        public void TestConditional_Block() {
+        public void TestConditional_Block()
+        {
             var exp = Expression.Condition(
                 Expression.Equal(Expression.Constant(1), Expression.Constant(2)),
                 Expression.Constant(4),
@@ -77,7 +84,8 @@ else
         }
 
         [TestMethod]
-        public void TestConditional_Block_Chain() {
+        public void TestConditional_Block_Chain()
+        {
             var exp = Expression.Condition(
                 Expression.Equal(Expression.Constant(1), Expression.Constant(2)),
                 Expression.Constant(4),
@@ -105,11 +113,12 @@ else
         }
 
         [TestMethod]
-        public void TestConstant() {
+        public void TestConstant()
+        {
             Expression<Func<string, char>> fn = s => s == "x" || s == null || s.IsNormalized() == false || s.GetType() == typeof(string) ? 'x' : s[0];
             var str = fn.ToScript();
-            Assert.AreEqual(
-@"char Main(string s)
+            Assert.AreEqual(@"
+public char Main(string s)
 {
     return s == ""x"" || s == null || s.IsNormalized() == false || s.GetType() == typeof(string) ? 'x' : s[0];
 }"
@@ -117,81 +126,82 @@ else
         }
 
         [TestMethod]
-        public void TestConstant_DateTime() {
+        public void TestConstant_DateTime()
+        {
             var now = DateTime.Now;
             var expr = Expression.Constant(now);
             var script = expr.ToScript();
-            Assert.AreEqual($"valueof(DateTime, \"{now}\")", script);
-        }
-
-#if !NETCOREAPP
-        [TestMethod]
-        public void TestDynamic()
-        {
-            var dynType = typeof(ExpandoObject);
-            var p1 = Expression.Variable(dynType);
-            var line1 = Expression.Dynamic(Binder.Convert(CSharpBinderFlags.None, typeof(Poco), dynType), typeof(object), p1);
-            var line2 = Expression.Dynamic(Binder.GetMember(CSharpBinderFlags.None, "Blah", dynType,
-                new[] { CSharpArgumentInfo.Create(CSharpArgumentInfoFlags.None, null) }), typeof(object), p1);
-            var line3 = Expression.Dynamic(Binder.SetMember(CSharpBinderFlags.None, "Blah", dynType,
-                new[]
-                {
-                    CSharpArgumentInfo.Create(CSharpArgumentInfoFlags.None, null),
-                    CSharpArgumentInfo.Create(CSharpArgumentInfoFlags.None, null),
-                }), typeof(object), p1, Expression.Constant(0));
-            var line4 = Expression.Dynamic(Binder.GetIndex(CSharpBinderFlags.None, dynType,
-                new[]
-                {
-                    CSharpArgumentInfo.Create(CSharpArgumentInfoFlags.None, null),
-                    CSharpArgumentInfo.Create(CSharpArgumentInfoFlags.None, null),
-                }), typeof(object), p1, Expression.Constant(1));
-            var line5 = Expression.Dynamic(Binder.SetIndex(CSharpBinderFlags.None, dynType,
-                new[]
-                {
-                    CSharpArgumentInfo.Create(CSharpArgumentInfoFlags.None, null),
-                    CSharpArgumentInfo.Create(CSharpArgumentInfoFlags.None, null),
-                    CSharpArgumentInfo.Create(CSharpArgumentInfoFlags.None, null),
-                }), typeof(object), p1, Expression.Constant(1), Expression.Constant(0));
-            var line6 = Expression.Dynamic(Binder.InvokeMember(CSharpBinderFlags.None, "Blah", null, dynType,
-                new[]
-                {
-                    CSharpArgumentInfo.Create(CSharpArgumentInfoFlags.None, null),
-                    CSharpArgumentInfo.Create(CSharpArgumentInfoFlags.None, null),
-                }), typeof(object), p1, Expression.Constant(2));
-            var line7 = Expression.Dynamic(Binder.Invoke(CSharpBinderFlags.None, dynType,
-                new[]
-                {
-                    CSharpArgumentInfo.Create(CSharpArgumentInfoFlags.None, null),
-                    CSharpArgumentInfo.Create(CSharpArgumentInfoFlags.None, null),
-                }), typeof(object), p1, Expression.Constant(2));
-            var line8 = Expression.Dynamic(Binder.UnaryOperation(CSharpBinderFlags.None, ExpressionType.Negate, dynType,
-                new[]
-                {
-                    CSharpArgumentInfo.Create(CSharpArgumentInfoFlags.None, null),
-                }), typeof(object), p1);
-            var line9 = Expression.Dynamic(Binder.BinaryOperation(CSharpBinderFlags.None, ExpressionType.Add, dynType,
-                new[]
-                {
-                    CSharpArgumentInfo.Create(CSharpArgumentInfoFlags.None, null),
-                    CSharpArgumentInfo.Create(CSharpArgumentInfoFlags.None, null),
-                }), typeof(object), p1, Expression.Constant(3));
-            var expr = Expression.Block(new[] { p1 }, line1, line2, line3, line4, line5, line6, line7, line8, line9);
-            var str = expr.ToScript();
             Assert.AreEqual(@"
-dynamic p1;
-
-(Poco)p1;
-p1.Blah;
-p1.Blah = 0;
-p1[1];
-p1[1] = 0;
-p1.Blah(2);
-p1(2);
--p1;
-p1 + 3;"
-                , str);
+public DateTime DateTime1;
+DateTime1", script);
         }
-#endif
+
+//        [TestMethod]
+//        public void TestDynamic()
+//        {
+//            var dynType = typeof(ExpandoObject);
+//            var p1 = Expression.Variable(dynType);
+//            var line1 = Expression.Dynamic(Binder.Convert(CSharpBinderFlags.None, typeof(Poco), dynType), typeof(object), p1);
+//            var line2 = Expression.Dynamic(Binder.GetMember(CSharpBinderFlags.None, "Blah", dynType,
+//                new[] { CSharpArgumentInfo.Create(CSharpArgumentInfoFlags.None, null) }), typeof(object), p1);
+//            var line3 = Expression.Dynamic(Binder.SetMember(CSharpBinderFlags.None, "Blah", dynType,
+//                new[]
+//                {
+//                    CSharpArgumentInfo.Create(CSharpArgumentInfoFlags.None, null),
+//                    CSharpArgumentInfo.Create(CSharpArgumentInfoFlags.None, null),
+//                }), typeof(object), p1, Expression.Constant(0));
+//            var line4 = Expression.Dynamic(Binder.GetIndex(CSharpBinderFlags.None, dynType,
+//                new[]
+//                {
+//                    CSharpArgumentInfo.Create(CSharpArgumentInfoFlags.None, null),
+//                    CSharpArgumentInfo.Create(CSharpArgumentInfoFlags.None, null),
+//                }), typeof(object), p1, Expression.Constant(1));
+//            var line5 = Expression.Dynamic(Binder.SetIndex(CSharpBinderFlags.None, dynType,
+//                new[]
+//                {
+//                    CSharpArgumentInfo.Create(CSharpArgumentInfoFlags.None, null),
+//                    CSharpArgumentInfo.Create(CSharpArgumentInfoFlags.None, null),
+//                    CSharpArgumentInfo.Create(CSharpArgumentInfoFlags.None, null),
+//                }), typeof(object), p1, Expression.Constant(1), Expression.Constant(0));
+//            var line6 = Expression.Dynamic(Binder.InvokeMember(CSharpBinderFlags.None, "Blah", null, dynType,
+//                new[]
+//                {
+//                    CSharpArgumentInfo.Create(CSharpArgumentInfoFlags.None, null),
+//                    CSharpArgumentInfo.Create(CSharpArgumentInfoFlags.None, null),
+//                }), typeof(object), p1, Expression.Constant(2));
+//            var line7 = Expression.Dynamic(Binder.Invoke(CSharpBinderFlags.None, dynType,
+//                new[]
+//                {
+//                    CSharpArgumentInfo.Create(CSharpArgumentInfoFlags.None, null),
+//                    CSharpArgumentInfo.Create(CSharpArgumentInfoFlags.None, null),
+//                }), typeof(object), p1, Expression.Constant(2));
+//            var line8 = Expression.Dynamic(Binder.UnaryOperation(CSharpBinderFlags.None, ExpressionType.Negate, dynType,
+//                new[]
+//                {
+//                    CSharpArgumentInfo.Create(CSharpArgumentInfoFlags.None, null),
+//                }), typeof(object), p1);
+//            var line9 = Expression.Dynamic(Binder.BinaryOperation(CSharpBinderFlags.None, ExpressionType.Add, dynType,
+//                new[]
+//                {
+//                    CSharpArgumentInfo.Create(CSharpArgumentInfoFlags.None, null),
+//                    CSharpArgumentInfo.Create(CSharpArgumentInfoFlags.None, null),
+//                }), typeof(object), p1, Expression.Constant(3));
+//            var expr = Expression.Block(new[] { p1 }, line1, line2, line3, line4, line5, line6, line7, line8, line9);
+//            var str = expr.ToScript();
+//            Assert.AreEqual(@"
+//dynamic p1;
+
+//(Poco)p1;
+//p1.Blah;
+//p1.Blah = 0;
+//p1[1];
+//p1[1] = 0;
+//p1.Blah(2);
+//p1(2);
+//-p1;
+//p1 + 3;"
+//                , str);
+//        }
 
         [TestMethod]
         public void TestDefault()
@@ -206,8 +216,8 @@ p1 + 3;"
         {
             Expression<Func<int, int>> fn = x => -(-x) + 1 + x - (1 - x);
             var str = fn.ToScript();
-            Assert.AreEqual(
-@"int Main(int x)
+            Assert.AreEqual(@"
+public int Main(int x)
 {
     return -(-x) + 1 + x - (1 - x);
 }"
@@ -238,7 +248,7 @@ p1 + 3;"
             Assert.AreEqual(@"
 func1(1) + func1(1);
 
-int func1(int p1)
+private int func1(int p1)
 {
     return p1 + 1;
 }"
@@ -250,8 +260,8 @@ int func1(int p1)
         {
             Expression<Func<IQueryable<int>, IQueryable<int>>> fn = q => q.Where(it => it > 0);
             var str = fn.ToScript();
-            Assert.AreEqual(
-@"IQueryable<int> Main(IQueryable<int> q)
+            Assert.AreEqual(@"
+public IQueryable<int> Main(IQueryable<int> q)
 {
     return q.Where(it => it > 0);
 }"
@@ -263,8 +273,8 @@ int func1(int p1)
         {
             Expression<Func<List<int>>> list = () => new List<int>() { 1, 2, 3 };
             var str = list.ToScript();
-            Assert.AreEqual(
-@"List<int> Main()
+            Assert.AreEqual(@"
+public List<int> Main()
 {
     return new List<int>() {1, 2, 3};
 }"
@@ -280,8 +290,8 @@ int func1(int p1)
                 {3, 4}
             };
             var str = list.ToScript();
-            Assert.AreEqual(
-@"Dictionary<int, int> Main()
+            Assert.AreEqual(@"
+public Dictionary<int, int> Main()
 {
     return new Dictionary<int, int>() {{1, 2}, {3, 4}};
 }"
@@ -347,8 +357,8 @@ label1:"
         {
             Expression<Func<int>> fn = () => DateTime.Now.Day;
             var str = fn.ToScript();
-            Assert.AreEqual(
-@"int Main()
+            Assert.AreEqual(@"
+public int Main()
 {
     return DateTime.Now.Day;
 }"
@@ -372,8 +382,8 @@ label1:"
                 Children = { new Poco(), new Poco() }
             };
             var str = fn.ToScript();
-            Assert.AreEqual(
-@"Poco Main()
+            Assert.AreEqual(@"
+public Poco Main()
 {
     return new Poco()
     {
@@ -390,8 +400,8 @@ label1:"
         {
             Expression<Func<Dictionary<int, int>, int>> fn = dict => dict[0];
             var str = fn.ToScript();
-            Assert.AreEqual(
-@"int Main(Dictionary<int, int> dict)
+            Assert.AreEqual(@"
+public int Main(Dictionary<int, int> dict)
 {
     return dict[0];
 }"
@@ -403,8 +413,8 @@ label1:"
         {
             Expression<Func<List<int>, string>> fn = list => list.ToString();
             var str = fn.ToScript();
-            Assert.AreEqual(
-@"string Main(List<int> list)
+            Assert.AreEqual(@"
+public string Main(List<int> list)
 {
     return list.ToString();
 }"
@@ -416,8 +426,8 @@ label1:"
         {
             Expression<Func<int, int, int>> fn = (a, b) => Math.Max(a, b);
             var str = fn.ToScript();
-            Assert.AreEqual(
-@"int Main(int a, int b)
+            Assert.AreEqual(@"
+public int Main(int a, int b)
 {
     return Math.Max(a, b);
 }"
@@ -429,8 +439,8 @@ label1:"
         {
             Expression<Func<int, int[]>> fn = i => new[] { i };
             var str = fn.ToScript();
-            Assert.AreEqual(
-@"int[] Main(int i)
+            Assert.AreEqual(@"
+public int[] Main(int i)
 {
     return new[] {i};
 }"
@@ -442,8 +452,8 @@ label1:"
         {
             Expression<Func<int, int[]>> fn = i => new int[i];
             var str = fn.ToScript();
-            Assert.AreEqual(
-@"int[] Main(int i)
+            Assert.AreEqual(@"
+public int[] Main(int i)
 {
     return new int[i];
 }"
@@ -455,8 +465,8 @@ label1:"
         {
             Expression<Func<int?, int>> fn = @null => @null.Value;
             var str = fn.ToScript();
-            Assert.AreEqual(
-@"int Main(int? @null)
+            Assert.AreEqual(@"
+public int Main(int? @null)
 {
     return @null.Value;
 }"
@@ -504,7 +514,7 @@ switch (p1)
             Assert.AreEqual(@"
 try
 {
-    p1 = 1 / 0;
+    p1 = 1d / 0d;
 }
 catch (DivideByZeroException p2) when (true)
 {
@@ -525,13 +535,18 @@ finally
                 Expression.Constant("blah"));
             var str = expr.ToScript();
             Assert.AreEqual(@"
+bool fault1 = true;
 try
 {
     1;
+    fault1 = false;
 }
-fault
+finally
 {
-    ""blah"";
+    if (fault1)
+    {
+        ""blah"";
+    }
 }"
                 , str);
         }
@@ -541,8 +556,8 @@ fault
         {
             Expression<Func<object, bool>> fn = o => o is Array;
             var str = fn.ToScript();
-            Assert.AreEqual(
-@"bool Main(object o)
+            Assert.AreEqual(@"
+public bool Main(object o)
 {
     return o is Array;
 }"
@@ -554,8 +569,8 @@ fault
         {
             Expression<Func<double, int>> fn = d => (int)d;
             var str = fn.ToScript();
-            Assert.AreEqual(
-@"int Main(double d)
+            Assert.AreEqual(@"
+public int Main(double d)
 {
     return (int)d;
 }"
@@ -567,8 +582,8 @@ fault
         {
             Expression<Func<int[], int>> fn = a => a.Length;
             var str = fn.ToScript();
-            Assert.AreEqual(
-@"int Main(int[] a)
+            Assert.AreEqual(@"
+public int Main(int[] a)
 {
     return a.Length;
 }"
@@ -580,8 +595,8 @@ fault
         {
             Expression<Func<Expression, Expression>> fn = expr => expr as UnaryExpression;
             var str = fn.ToScript();
-            Assert.AreEqual(
-@"Expression Main(Expression expr)
+            Assert.AreEqual(@"
+public Expression Main(Expression expr)
 {
     return expr as UnaryExpression;
 }"

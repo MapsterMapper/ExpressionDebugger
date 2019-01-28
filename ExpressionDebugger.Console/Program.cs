@@ -2,9 +2,12 @@
 using System;
 using System.Linq.Expressions;
 
-namespace ExpressionDebugger.Console {
-    class Program {
-        static void Main(string[] args) {
+namespace ExpressionDebugger.Console
+{
+    class Program
+    {
+        static void Main(string[] args)
+        {
             var p1 = Expression.Parameter(typeof(int));
             var p2 = Expression.Parameter(typeof(int));
             var body = Expression.Add(p1, p2);
