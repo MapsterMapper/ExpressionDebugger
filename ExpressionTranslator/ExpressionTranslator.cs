@@ -21,16 +21,17 @@ namespace ExpressionDebugger
         private Dictionary<Type, string> _typeNames;
         private HashSet<string> _usings;
         private Dictionary<object, string> _constants;
-        private readonly ExpressionDefinitions _definitions;
 
         public Dictionary<object, string> Constants => _constants ?? (_constants = new Dictionary<object, string>());
         public Dictionary<Type, string> TypeNames => _typeNames ?? (_typeNames = new Dictionary<Type, string>());
 
         public bool HasDynamic { get; private set; }
+        public ExpressionDefinitions Definitions { get; }
+        public Expression Expression { get; private set; }
 
-        public ExpressionTranslator(ExpressionDefinitions definitions = null)
+        private ExpressionTranslator(ExpressionDefinitions definitions = null)
         {
-            _definitions = definitions;
+            Definitions = definitions;
             _writer = new StringWriter();
             ResetIndentLevel();
         }
@@ -38,21 +39,23 @@ namespace ExpressionDebugger
         private void ResetIndentLevel()
         {
             _indentLevel = 0;
-            if (_definitions?.TypeName != null)
+            if (Definitions?.TypeName != null)
             {
                 _indentLevel++;
-                if (_definitions.Namespace != null)
+                if (Definitions.Namespace != null)
                     _indentLevel++;
             }
         }
 
-        public string Translate(Expression node)
+        public static ExpressionTranslator Create(Expression node, ExpressionDefinitions definitions = null)
         {
+            var translator = new ExpressionTranslator(definitions);
             if (node.NodeType == ExpressionType.Lambda)
-                VisitLambda((LambdaExpression)node, LambdaType.Main);
+                translator.VisitLambda((LambdaExpression)node, LambdaType.Main);
             else
-                Visit(node);
-            return this.ToString();
+                translator.Visit(node);
+            translator.Expression = node;
+            return translator;
         }
 
         private static int GetPrecedence(ExpressionType nodeType)
@@ -574,7 +577,7 @@ namespace ExpressionDebugger
                 Expression next;
                 if (isInline)
                 {
-                    if (shouldReturn && i == last)
+                    if (shouldReturn && i == last && expr.NodeType != ExpressionType.Throw)
                         Write("return ");
                     next = Visit(expr);
                     Write(";");
@@ -1093,7 +1096,7 @@ namespace ExpressionDebugger
         private void WriteModifier(bool isPublic)
         {
             WriteNextLine(isPublic ? "public " : "private ");
-            if (_definitions?.IsStatic == true)
+            if (Definitions?.IsStatic == true)
                 Write("static ");
         }
 
@@ -1102,7 +1105,7 @@ namespace ExpressionDebugger
             if (type == LambdaType.Function || type == LambdaType.Main)
             {
                 var name = type == LambdaType.Main
-                    ? (_definitions?.MethodName ?? "Main")
+                    ? (Definitions?.MethodName ?? "Main")
                     : GetName(node);
                 WriteModifier(type == LambdaType.Main);
                 Write(Translate(node.ReturnType), " ", name);
@@ -1325,6 +1328,7 @@ namespace ExpressionDebugger
             {
                 obj = VisitGroup(node.Object, node.NodeType);
             }
+#if !NET40
             else if (!node.Method.IsPublic || node.Method.DeclaringType?.GetTypeInfo().IsNotPublic == true)
             {
                 isNotPublic = true;
@@ -1339,6 +1343,7 @@ namespace ExpressionDebugger
                 var func = node.Method.CreateDelegate(del);
                 Write(GetConstant(func, GetVarName(node.Method.Name)), ".Invoke");
             }
+#endif
             else if (node.Method.GetCustomAttribute<ExtensionAttribute>() != null)
             {
                 isExtension = true;
@@ -1749,14 +1754,14 @@ namespace ExpressionDebugger
                 _writer = codeWriter;
 
                 //exercise to update _usings
-                var implements = _definitions?.Implements?.OrderBy(it => it.GetTypeInfo().IsInterface ? 1 : 0)
+                var implements = Definitions?.Implements?.OrderBy(it => it.GetTypeInfo().IsInterface ? 1 : 0)
                     .Select(Translate)
                     .ToList();
                 var constants = _constants?.OrderBy(it => it.Value)
                     .Select(kvp => $"{Translate(kvp.Key.GetType())} {kvp.Value};")
                     .ToList();
 
-                if (_definitions?.TypeName != null)
+                if (Definitions?.TypeName != null)
                 {
                     if (_usings != null)
                     {
@@ -1780,14 +1785,14 @@ namespace ExpressionDebugger
                         }
                         WriteLine();
                     }
-                    if (_definitions?.Namespace != null)
+                    if (Definitions?.Namespace != null)
                     {
-                        WriteNextLine("namespace ", _definitions.Namespace);
+                        WriteNextLine("namespace ", Definitions.Namespace);
                         Indent();
                     }
 
                     WriteModifier(true);
-                    Write("class ", _definitions.TypeName);
+                    Write("class ", Definitions.TypeName);
                     if (implements?.Any() == true)
                     {
                         Write(" : ", string.Join(", ", implements));
@@ -1806,10 +1811,10 @@ namespace ExpressionDebugger
                 _writer.Write(temp);
                 if (_appendWriter != null)
                     _writer.Write(_appendWriter);
-                if (_definitions?.TypeName != null)
+                if (Definitions?.TypeName != null)
                 {
                     Outdent();
-                    if (_definitions?.Namespace != null)
+                    if (Definitions?.Namespace != null)
                         Outdent();
                 }
                 return _writer.ToString();

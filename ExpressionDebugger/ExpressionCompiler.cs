@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Reflection;
 using System.Runtime.Loader;
 using System.Text;
@@ -14,8 +15,10 @@ namespace ExpressionDebugger
 {
     public class ExpressionCompiler
     {
+        public List<ExpressionTranslator> Translators { get; } = new List<ExpressionTranslator>();
+
         private readonly ExpressionCompilationOptions _options;
-        public ExpressionCompiler(ExpressionCompilationOptions options)
+        public ExpressionCompiler(ExpressionCompilationOptions options = null)
         {
             _options = options;
         }
@@ -51,16 +54,41 @@ namespace ExpressionDebugger
             _codes.Add(encoded);
         }
 
-        public Assembly CreateAssembly(IEnumerable<Assembly> assemblies)
+        public void AddFile(LambdaExpression node, ExpressionDefinitions definitions = null)
         {
+            if (definitions == null)
+                definitions = _options?.DefaultDefinitions ?? new ExpressionDefinitions { IsStatic = true };
+            if (definitions.TypeName == null)
+                definitions.TypeName = "Program";
+
+            var translator = ExpressionTranslator.Create(node, definitions);
+            var script = translator.ToString();
+            Translators.Add(translator);
+
+            this.AddFile(script, Path.ChangeExtension(Path.GetRandomFileName(), ".cs"));
+        }
+
+        public Assembly CreateAssembly()
+        {
+            var references = new HashSet<Assembly>();
+            references.UnionWith(from t in Translators
+                                 from n in t.TypeNames
+                                 select n.Key.Assembly);
+
+            if (_options?.References != null)
+                references.UnionWith(_options.References);
+            references.Add(typeof(object).Assembly);
+            references.Add(Assembly.Load(new AssemblyName("System.Runtime")));
+            references.Add(Assembly.Load(new AssemblyName("System.Collections")));
+
             var assemblyName = Path.GetRandomFileName();
             var symbolsName = Path.ChangeExtension(assemblyName, "pdb");
 
-            var references = assemblies.Select(it => MetadataReference.CreateFromFile(it.Location));
+            var metadataReferences = references.Select(it => MetadataReference.CreateFromFile(it.Location));
             CSharpCompilation compilation = CSharpCompilation.Create(
                 assemblyName,
                 _codes,
-                references,
+                metadataReferences,
                 new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, usings: new[] { "System" })
                     .WithOptimizationLevel(_options?.IsRelease == true ? OptimizationLevel.Release : OptimizationLevel.Debug)
                     .WithPlatform(Platform.AnyCpu)

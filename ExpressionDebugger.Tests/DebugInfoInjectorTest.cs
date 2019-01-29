@@ -263,7 +263,7 @@ private int func1(int p1)
             Assert.AreEqual(@"
 public IQueryable<int> Main(IQueryable<int> q)
 {
-    return q.Where(it => it > 0);
+    return q.Where<int>(it => it > 0);
 }"
                 , str);
         }
@@ -383,13 +383,13 @@ public int Main()
             };
             var str = fn.ToScript();
             Assert.AreEqual(@"
-public Poco Main()
+public DebugInfoInjectorTest.Poco Main()
 {
-    return new Poco()
+    return new DebugInfoInjectorTest.Poco()
     {
         Name = ""1"",
         Parent = {Name = ""2""},
-        Children = {new Poco(), new Poco()}
+        Children = {new DebugInfoInjectorTest.Poco(), new DebugInfoInjectorTest.Poco()}
     };
 }"
                 , str);
@@ -442,7 +442,7 @@ public int Main(int a, int b)
             Assert.AreEqual(@"
 public int[] Main(int i)
 {
-    return new[] {i};
+    return new int[] {i};
 }"
                 , str);
         }

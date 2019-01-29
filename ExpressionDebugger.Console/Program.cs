@@ -14,7 +14,7 @@ namespace ExpressionDebugger.Console
             var lambda = Expression.Lambda<Func<int, int, int>>(body, p1, p2);
             var fun = lambda.CompileWithDebugInfo();
             var result = fun(1, 2);
-            System.Console.WriteLine(3);
+            System.Console.WriteLine(result);
         }
     }
 }
