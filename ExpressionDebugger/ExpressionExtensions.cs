@@ -54,7 +54,8 @@ namespace System.Linq.Expressions
                 references.Add(typeof(object).Assembly);
                 references.Add(Assembly.Load(new AssemblyName("System.Runtime")));
                 references.Add(Assembly.Load(new AssemblyName("System.Collections")));
-                //references.Add(Assembly.Load(new AssemblyName("System.Core")));
+                if (translator.HasDynamic)
+                    references.Add(Assembly.Load(new AssemblyName("Microsoft.CSharp")));
 
                 var assembly = compiler.CreateAssembly(references);
                 var typeName = definitions.Namespace == null

@@ -24,6 +24,8 @@ namespace ExpressionDebugger
         public Dictionary<object, string> Constants => _constants ?? (_constants = new Dictionary<object, string>());
         public Dictionary<Type, string> TypeNames => _typeNames ?? (_typeNames = new Dictionary<Type, string>());
 
+        public bool HasDynamic { get; private set; }
+
         public ExpressionTranslator(ExpressionDefinitions definitions = null)
         {
             _definitions = definitions;
@@ -220,7 +222,7 @@ namespace ExpressionDebugger
         {
             _writer.WriteLine();
 
-            var spaceCount = _indentLevel*Tabsize;
+            var spaceCount = _indentLevel * Tabsize;
             _writer.Write(new string(' ', spaceCount));
         }
 
@@ -416,8 +418,11 @@ namespace ExpressionDebugger
                 return "ushort";
             if (type == typeof(void))
                 return "void";
-            if (typeof(IDynamicMetaObjectProvider).GetTypeInfo().IsAssignableFrom(type.GetTypeInfo()))
+            if (type.IsNotPublic || typeof(IDynamicMetaObjectProvider).GetTypeInfo().IsAssignableFrom(type.GetTypeInfo()))
+            {
+                HasDynamic = true;
                 return "dynamic";
+            }
 
             if (type.IsArray)
             {
@@ -490,8 +495,8 @@ namespace ExpressionDebugger
             switch (node.NodeType)
             {
                 case ExpressionType.Conditional:
-                    var condExpr = (ConditionalExpression) node;
-                    return condExpr.Type != typeof (void) && IsInline(condExpr.IfTrue) && IsInline(condExpr.IfFalse);
+                    var condExpr = (ConditionalExpression)node;
+                    return condExpr.Type != typeof(void) && IsInline(condExpr.IfTrue) && IsInline(condExpr.IfFalse);
 
                 case ExpressionType.Block:
                 case ExpressionType.DebugInfo:
@@ -512,16 +517,16 @@ namespace ExpressionDebugger
             switch (node.NodeType)
             {
                 case ExpressionType.Block:
-                    return VisitBlock((BlockExpression) node, shouldReturn);
+                    return VisitBlock((BlockExpression)node, shouldReturn);
 
                 case ExpressionType.Conditional:
                     return VisitConditional((ConditionalExpression)node, shouldReturn);
 
                 case ExpressionType.Try:
-                    return VisitTry((TryExpression) node, shouldReturn);
+                    return VisitTry((TryExpression)node, shouldReturn);
 
                 case ExpressionType.Switch:
-                    return VisitSwitch((SwitchExpression) node, shouldReturn);
+                    return VisitSwitch((SwitchExpression)node, shouldReturn);
 
                 //case ExpressionType.DebugInfo:
                 //case ExpressionType.Goto:
@@ -534,12 +539,12 @@ namespace ExpressionDebugger
         private Expression VisitBody(Expression node, bool shouldReturn = false)
         {
             if (node.NodeType == ExpressionType.Block)
-                return VisitBlock((BlockExpression) node, shouldReturn);
+                return VisitBlock((BlockExpression)node, shouldReturn);
 
             if (node.NodeType == ExpressionType.Default && node.Type == typeof(void))
                 return node;
 
-            var lines = VisitBlockBody(new List<Expression> {node}, shouldReturn);
+            var lines = VisitBlockBody(new List<Expression> { node }, shouldReturn);
             return Expression.Block(lines);
         }
 
@@ -602,7 +607,7 @@ namespace ExpressionDebugger
             if (hasDeclaration)
                 WriteLine();
 
-            var lines = VisitBlockBody(node.Expressions, shouldReturn && node.Type != typeof (void));
+            var lines = VisitBlockBody(node.Expressions, shouldReturn && node.Type != typeof(void));
             return Expression.Block(list, lines);
         }
 
@@ -846,7 +851,7 @@ namespace ExpressionDebugger
             {
                 var expr = VisitGroup(node.Arguments[0], ExpressionType.Index);
                 var args = VisitArguments("[", node.Arguments.Skip(1).ToList(), Visit, "]");
-                return Update(node, new[] {expr}.Concat(args));
+                return Update(node, new[] { expr }.Concat(args));
             }
             if (node.Binder is SetIndexBinder)
             {
@@ -854,7 +859,7 @@ namespace ExpressionDebugger
                 var args = VisitArguments("[", node.Arguments.Skip(1).Take(node.Arguments.Count - 2).ToList(), Visit, "]");
                 Write(" = ");
                 var value = VisitGroup(node.Arguments[node.Arguments.Count - 1], ExpressionType.Assign);
-                return Update(node, new[] {expr}.Concat(args).Concat(new[] {value}));
+                return Update(node, new[] { expr }.Concat(args).Concat(new[] { value }));
             }
             if (node.Binder is DeleteIndexBinder)
             {
@@ -935,7 +940,7 @@ namespace ExpressionDebugger
             if (node.Arguments.Count == 1)
             {
                 var arg = Visit(node.Arguments[0]);
-                var args = arg != node.Arguments[0] ? new[] {arg}.AsEnumerable() : node.Arguments;
+                var args = arg != node.Arguments[0] ? new[] { arg }.AsEnumerable() : node.Arguments;
                 return node.Update(args);
             }
             else
@@ -1038,12 +1043,7 @@ namespace ExpressionDebugger
             }
             else
             {
-                if (member is PropertyInfo p && p.GetIndexParameters().Length == 0 && (member.DeclaringType.IsNotPublic || p.GetGetMethod() == null))
-                    Write(GetConstant(p.GetValue(null), member.Name));
-                else if (member is FieldInfo f && (member.DeclaringType.IsNotPublic || !f.IsPublic))
-                    Write(GetConstant(f.GetValue(null), member.Name));
-                else
-                    Write(Translate(member.DeclaringType), ".", member.Name);
+                Write(Translate(member.DeclaringType), ".", member.Name);
                 return null;
             }
         }
@@ -1155,7 +1155,7 @@ namespace ExpressionDebugger
             }
         }
 
-        private IList<T> VisitElements<T>(IList<T> list, Func<T, T> func) where T: class
+        private IList<T> VisitElements<T>(IList<T> list, Func<T, T> func) where T : class
         {
             var wrap = true;
             if (list.Count == 0)
@@ -1186,7 +1186,7 @@ namespace ExpressionDebugger
             Expression body;
             if (node.Body.NodeType == ExpressionType.Conditional)
             {
-                var condExpr = (ConditionalExpression) node.Body;
+                var condExpr = (ConditionalExpression)node.Body;
 
                 if (condExpr.IfFalse is GotoExpression @break && @break.Target == node.BreakLabel)
                 {
@@ -1229,7 +1229,7 @@ namespace ExpressionDebugger
 
         protected override Expression VisitMemberInit(MemberInitExpression node)
         {
-            var @new = (NewExpression) Visit(node.NewExpression);
+            var @new = (NewExpression)Visit(node.NewExpression);
             var args = VisitElements(node.Bindings, VisitMemberBinding);
             return node.Update(@new, args);
         }
@@ -1250,6 +1250,9 @@ namespace ExpressionDebugger
 
         private static Type GetDelegateType(MethodInfo method)
         {
+            if (method.GetParameters().Any(it => it.IsOut || it.ParameterType.IsByRef))
+                throw new InvalidOperationException("Cannot handle non-public method");
+
             if (method.ReturnType == typeof(void))
             {
                 switch (method.GetParameters().Length)
@@ -1271,7 +1274,7 @@ namespace ExpressionDebugger
                     case 14: return typeof(Action<,,,,,,,,,,,,,>);
                     case 15: return typeof(Action<,,,,,,,,,,,,,,>);
                     case 16: return typeof(Action<,,,,,,,,,,,,,,,>);
-                    default: return typeof(Delegate);
+                    default: throw new InvalidOperationException("Cannot handle non-public method");
                 }
             }
             else
@@ -1295,7 +1298,7 @@ namespace ExpressionDebugger
                     case 14: return typeof(Func<,,,,,,,,,,,,,,>);
                     case 15: return typeof(Func<,,,,,,,,,,,,,,,>);
                     case 16: return typeof(Func<,,,,,,,,,,,,,,,,>);
-                    default: return typeof(Delegate);
+                    default: throw new InvalidOperationException("Cannot handle non-public method");
                 }
             }
         }
@@ -1315,22 +1318,15 @@ namespace ExpressionDebugger
             {
                 isNotPublic = true;
                 var del = GetDelegateType(node.Method);
-                if (del == typeof(Delegate))
+                if (del.IsGenericTypeDefinition)
                 {
-                    Write("(", Translate(node.Method.ReturnType), ")", GetConstant(del, GetVarName(node.Method.Name)), ".DynamicInvoke");
+                    var types = node.Method.GetParameters().Select(it => it.ParameterType);
+                    if (node.Method.ReturnType != typeof(void))
+                        types = types.Concat(new[] { node.Method.ReturnType });
+                    del = del.MakeGenericType(types.ToArray());
                 }
-                else
-                {
-                    if (del.IsGenericTypeDefinition)
-                    {
-                        var types = node.Method.GetParameters().Select(it => it.ParameterType);
-                        if (node.Method.ReturnType != typeof(void))
-                            types = types.Concat(new[] { node.Method.ReturnType });
-                        del = del.MakeGenericType(types.ToArray());
-                    }
-                    var func = node.Method.CreateDelegate(del);
-                    Write(GetConstant(func, GetVarName(node.Method.Name)), ".Invoke");
-                }
+                var func = node.Method.CreateDelegate(del);
+                Write(GetConstant(func, GetVarName(node.Method.Name)), ".Invoke");
             }
             else if (node.Method.GetCustomAttribute<ExtensionAttribute>() != null)
             {
@@ -1370,7 +1366,7 @@ namespace ExpressionDebugger
             if (isExtension)
             {
                 var args = VisitArguments("(", node.Arguments.Skip(1).ToList(), Visit, ")", prefix: prefix.Skip(1).ToList());
-                var newArgs = new[] {arg0}.Concat(args).ToList();
+                var newArgs = new[] { arg0 }.Concat(args).ToList();
                 return newArgs.SequenceEqual(node.Arguments) ? node : node.Update(obj, newArgs);
             }
             else
@@ -1391,19 +1387,28 @@ namespace ExpressionDebugger
         {
             if (node.NodeType == ExpressionType.NewArrayBounds)
             {
-                Write("new ", Translate(node.Type.GetElementType()));
+                var elemType = node.Type.GetElementType();
+                var arrayCount = 1;
+                while (elemType.IsArray)
+                {
+                    elemType = elemType.GetElementType();
+                    arrayCount++;
+                }
+                Write("new ", Translate(elemType));
                 var args = VisitArguments("[", node.Expressions, Visit, "]");
+                for (int i = 1; i < arrayCount; i++)
+                    Write("[]");
                 return node.Update(args);
             }
             else
             {
-                Write("new[]");
+                Write("new ", Translate(node.Type));
                 var args = VisitElements(node.Expressions, Visit);
                 return node.Update(args);
             }
         }
 
-#region _reservedWords
+        #region _reservedWords
         private static readonly HashSet<string> ReservedWords = new HashSet<string>
         {
             "abstract",
@@ -1494,7 +1499,7 @@ namespace ExpressionDebugger
             "false",
             "true",
         };
-#endregion
+        #endregion
 
         protected override Expression VisitParameter(ParameterExpression node)
         {

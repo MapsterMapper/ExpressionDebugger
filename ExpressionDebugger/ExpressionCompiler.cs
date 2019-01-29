@@ -25,9 +25,14 @@ namespace ExpressionDebugger
         {
             var buffer = Encoding.UTF8.GetBytes(code);
 
-            var path = _options?.RootPath == null ? filename : Path.Combine(_options.RootPath, filename);
+            var path = filename;
             if (_options?.EmitFile == true)
             {
+                var root = _options?.RootPath;
+                if (root == null)
+                    root = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "GeneratedSources");
+                Directory.CreateDirectory(root);
+                path = Path.Combine(root, filename);
                 using (var fs = new FileStream(path, FileMode.Create))
                 {
                     fs.Write(buffer, 0, buffer.Length);
@@ -56,7 +61,7 @@ namespace ExpressionDebugger
                 assemblyName,
                 _codes,
                 references,
-                new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, usings: new[] { "System" } )
+                new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, usings: new[] { "System" })
                     .WithOptimizationLevel(_options?.IsRelease == true ? OptimizationLevel.Release : OptimizationLevel.Debug)
                     .WithPlatform(Platform.AnyCpu)
             );
