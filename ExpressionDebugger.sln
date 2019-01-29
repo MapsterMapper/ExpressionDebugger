@@ -9,6 +9,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ExpressionDebugger.Tests", 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ExpressionDebugger.Console", "ExpressionDebugger.Console\ExpressionDebugger.Console.csproj", "{71E2EC60-6780-4AB8-9773-91B4939560FB}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ExpressionTranslator", "ExpressionTranslator\ExpressionTranslator.csproj", "{9B67882F-BE07-45C9-9B86-FB33A8B4EA5B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -27,6 +29,10 @@ Global
 		{71E2EC60-6780-4AB8-9773-91B4939560FB}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{71E2EC60-6780-4AB8-9773-91B4939560FB}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{71E2EC60-6780-4AB8-9773-91B4939560FB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9B67882F-BE07-45C9-9B86-FB33A8B4EA5B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9B67882F-BE07-45C9-9B86-FB33A8B4EA5B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9B67882F-BE07-45C9-9B86-FB33A8B4EA5B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9B67882F-BE07-45C9-9B86-FB33A8B4EA5B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

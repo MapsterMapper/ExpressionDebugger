@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+#if !NETSTANDARD1_3
 using System.Dynamic;
+#endif
 using System.IO;
 using System.Linq;
 using System.Linq.Expressions;
@@ -418,11 +420,18 @@ namespace ExpressionDebugger
                 return "ushort";
             if (type == typeof(void))
                 return "void";
-            if (type.IsNotPublic || typeof(IDynamicMetaObjectProvider).GetTypeInfo().IsAssignableFrom(type.GetTypeInfo()))
+            if (type.GetTypeInfo().IsNotPublic)
             {
                 HasDynamic = true;
                 return "dynamic";
             }
+#if !NETSTANDARD1_3
+            if (typeof(IDynamicMetaObjectProvider).GetTypeInfo().IsAssignableFrom(type.GetTypeInfo()))
+            {
+                HasDynamic = true;
+                return "dynamic";
+            }
+#endif
 
             if (type.IsArray)
             {
@@ -813,6 +822,7 @@ namespace ExpressionDebugger
             return node;
         }
 
+#if !NETSTANDARD1_3
         private static Expression Update(DynamicExpression node, IEnumerable<Expression> args)
         {
             // ReSharper disable PossibleMultipleEnumeration
@@ -904,6 +914,7 @@ namespace ExpressionDebugger
             var dynArgs = VisitArguments("(" + Translate(node.Binder.GetType()) + ", ", node.Arguments, Visit, ")");
             return node.Update(dynArgs);
         }
+#endif
 
         private IList<T> VisitArguments<T>(string open, IList<T> args, Func<T, T> func, string end, bool wrap = false, IList<string> prefix = null) where T : class
         {
@@ -1314,11 +1325,11 @@ namespace ExpressionDebugger
             {
                 obj = VisitGroup(node.Object, node.NodeType);
             }
-            else if (!node.Method.IsPublic || node.Method.DeclaringType?.IsNotPublic == true)
+            else if (!node.Method.IsPublic || node.Method.DeclaringType?.GetTypeInfo().IsNotPublic == true)
             {
                 isNotPublic = true;
                 var del = GetDelegateType(node.Method);
-                if (del.IsGenericTypeDefinition)
+                if (del.GetTypeInfo().IsGenericTypeDefinition)
                 {
                     var types = node.Method.GetParameters().Select(it => it.ParameterType);
                     if (node.Method.ReturnType != typeof(void))

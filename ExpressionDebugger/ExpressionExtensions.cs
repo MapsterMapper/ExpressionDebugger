@@ -2,24 +2,12 @@
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
-using System.Reflection.Emit;
-using System.Runtime;
-using System.Runtime.CompilerServices;
+using System.Collections.Generic;
 
 namespace System.Linq.Expressions
 {
     public static class ExpressionExtensions
     {
-        /// <summary>
-        /// Generate script text
-        /// </summary>
-        /// <param name="node">Expression</param>
-        /// <returns>Script text</returns>
-        public static string ToScript(this Expression node, ExpressionDefinitions definitions = null)
-        {
-            var translator = new ExpressionTranslator(definitions);
-            return translator.Translate(node);
-        }
 
         /// <summary>
         /// Compile with debugging info injected
@@ -48,7 +36,7 @@ namespace System.Linq.Expressions
                 var script = translator.Translate(node);
                 var compiler = new ExpressionCompiler(options);
                 compiler.AddFile(script, Path.ChangeExtension(Path.GetRandomFileName(), ".cs"));
-                var references = translator.TypeNames.Select(it => it.Key.Assembly).ToHashSet();
+                var references = new HashSet<Assembly>(translator.TypeNames.Select(it => it.Key.Assembly));
                 if (options.References != null)
                     references.UnionWith(options.References);
                 references.Add(typeof(object).Assembly);
