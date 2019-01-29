@@ -1,17 +1,25 @@
 ![Icon](https://cloud.githubusercontent.com/assets/5763993/26522656/41e28a6e-432f-11e7-9cae-7856f927d1a1.png)
 
-# ExpressionDebugger
-Step into debugging and generate readable script from linq expressions
+# ExpressionTranslator
+Translate from linq expressions to C# code
 
 ### Get it
 ```
-PM> Install-Package ExpressionDebugger
+PM> Install-Package ExpressionTranslator
 ```
 
 ### Get readable script
 You can compile expression into readable script by `ToScript` extension method
 ```CSharp
 var script = lambda.ToScript();
+```
+
+# ExpressionDebugger
+Step into debugging and generate readable script from linq expressions
+
+### Get it
+```
+PM> Install-Package ExpressionDebugger
 ```
 
 ### Compile with debug info
@@ -21,8 +29,13 @@ var func = lambda.CompileWithDebugInfo();
 func(); //<-- you can step-into this function!!
 ```
 
-In order to step-into debugging, make sure you turn off just my code feature.
-![turn off just my code](https://cloud.githubusercontent.com/assets/5763993/23740682/47608676-04d7-11e7-842d-77c18a459515.png)
+### Version 2.0 .NET Core support!
+- Version 2.0 now support .NET Core
 
-#### Net Core support
-Currently, step-into debugging is working only in .NET 4.x. .NET Core doesn't support this feature yet.
+### Visual Studio for Mac
+To step-into debugging, you might need to emit file
+```CSharp
+var opt = new ExpressionCompilationOptions { EmitFile = true };
+var func = lambda.CompileWithDebugInfo(opt);
+func(); //<-- you can step-into this function!!
+```
