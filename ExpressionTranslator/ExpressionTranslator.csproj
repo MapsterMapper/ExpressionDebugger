@@ -16,6 +16,7 @@
     <FileVersion>2.0.0</FileVersion>
     <AssemblyVersion>2.0.0</AssemblyVersion>
     <RootNamespace>ExpressionDebugger</RootNamespace>
+    <PackageLicenseUrl>https://github.com/chaowlert/ExpressionDebugger/blob/master/LICENSE</PackageLicenseUrl>
   </PropertyGroup>
 
   <ItemGroup Condition=" '$(TargetFramework)' == 'net40' ">	
