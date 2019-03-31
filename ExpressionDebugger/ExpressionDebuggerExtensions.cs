@@ -48,9 +48,10 @@ namespace System.Linq.Expressions
             var type = assembly.GetType(typeName);
             var method = type.GetMethod(definitions.MethodName ?? "Main");
             var obj = definitions.IsStatic ? null : Activator.CreateInstance(type);
+            var flag = definitions.IsStatic ? BindingFlags.Static : BindingFlags.Instance;
             foreach (var kvp in translator.Constants)
             {
-                var field = type.GetField(kvp.Value);
+                var field = type.GetField(kvp.Value, BindingFlags.NonPublic | flag);
                 field.SetValue(obj, kvp.Key);
             }
             return method.CreateDelegate(translator.Expression.Type, obj);

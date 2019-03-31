@@ -4,6 +4,7 @@ using Microsoft.CodeAnalysis.Emit;
 using Microsoft.CodeAnalysis.Text;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Linq.Expressions;
@@ -85,12 +86,13 @@ namespace ExpressionDebugger
             var symbolsName = Path.ChangeExtension(assemblyName, "pdb");
 
             var metadataReferences = references.Select(it => MetadataReference.CreateFromFile(it.Location));
+            var isRelease = _options?.IsRelease ?? !Debugger.IsAttached;
             CSharpCompilation compilation = CSharpCompilation.Create(
                 assemblyName,
                 _codes,
                 metadataReferences,
                 new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, usings: new[] { "System" })
-                    .WithOptimizationLevel(_options?.IsRelease == true ? OptimizationLevel.Release : OptimizationLevel.Debug)
+                    .WithOptimizationLevel(isRelease ? OptimizationLevel.Release : OptimizationLevel.Debug)
                     .WithPlatform(Platform.AnyCpu)
             );
 

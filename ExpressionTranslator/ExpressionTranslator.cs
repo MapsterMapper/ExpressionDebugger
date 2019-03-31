@@ -13,7 +13,7 @@ namespace ExpressionDebugger
 {
     public class ExpressionTranslator : ExpressionVisitor
     {
-        private const int Tabsize = 4;
+        private const int _tabsize = 4;
         private StringWriter _writer;
         private int _indentLevel;
         private StringWriter _appendWriter;
@@ -21,6 +21,7 @@ namespace ExpressionDebugger
         private Dictionary<Type, string> _typeNames;
         private HashSet<string> _usings;
         private Dictionary<object, string> _constants;
+        private Dictionary<Type, object> _defaults;
 
         public Dictionary<object, string> Constants => _constants ?? (_constants = new Dictionary<object, string>());
         public Dictionary<Type, string> TypeNames => _typeNames ?? (_typeNames = new Dictionary<Type, string>());
@@ -74,7 +75,7 @@ namespace ExpressionDebugger
                 case ExpressionType.MultiplyAssign:
                 case ExpressionType.MultiplyAssignChecked:
                 case ExpressionType.OrAssign:
-                case ExpressionType.PowerAssign:
+                //case ExpressionType.PowerAssign:
                 case ExpressionType.Quote:
                 case ExpressionType.RightShiftAssign:
                 case ExpressionType.SubtractAssign:
@@ -156,9 +157,9 @@ namespace ExpressionDebugger
                 case ExpressionType.UnaryPlus:
                     return 13;
 
-                // Power
-                case ExpressionType.Power:
-                    return 14;
+                //// Power
+                //case ExpressionType.Power:
+                //    return 14;
 
                 default:
                     return 100;
@@ -191,7 +192,7 @@ namespace ExpressionDebugger
                 case ExpressionType.Divide:
                 case ExpressionType.Modulo:
                 case ExpressionType.LeftShift:
-                case ExpressionType.Power:
+                //case ExpressionType.Power:
                 case ExpressionType.RightShift:
                 case ExpressionType.Subtract:
                 case ExpressionType.SubtractChecked:
@@ -227,7 +228,7 @@ namespace ExpressionDebugger
         {
             _writer.WriteLine();
 
-            var spaceCount = _indentLevel * Tabsize;
+            var spaceCount = _indentLevel * _tabsize;
             _writer.Write(new string(' ', spaceCount));
         }
 
@@ -423,11 +424,6 @@ namespace ExpressionDebugger
                 return "ushort";
             if (type == typeof(void))
                 return "void";
-            if (type.GetTypeInfo().IsNotPublic)
-            {
-                HasDynamic = true;
-                return "dynamic";
-            }
 #if !NETSTANDARD1_3
             if (typeof(IDynamicMetaObjectProvider).GetTypeInfo().IsAssignableFrom(type.GetTypeInfo()))
             {
@@ -791,6 +787,22 @@ namespace ExpressionDebugger
             }
             else
             {
+                var type = value.GetType();
+                if (type.GetTypeInfo().IsValueType)
+                {
+                    if (_defaults == null)
+                        _defaults = new Dictionary<Type, object>();
+                    if (!_defaults.TryGetValue(type, out var def))
+                    {
+                        def = Activator.CreateInstance(type);
+                        _defaults[type] = def;
+                    }
+                    if (value.Equals(def))
+                    {
+                        Write($"default({Translate(type)})");
+                        return;
+                    }
+                }
                 Write(GetConstant(value));
             }
         }
@@ -1792,7 +1804,7 @@ namespace ExpressionDebugger
                     }
 
                     WriteModifier(true);
-                    Write("class ", Definitions.TypeName);
+                    Write("partial class ", Definitions.TypeName);
                     if (implements?.Any() == true)
                     {
                         Write(" : ", string.Join(", ", implements));
@@ -1803,7 +1815,7 @@ namespace ExpressionDebugger
                 {
                     foreach (var constant in constants)
                     {
-                        WriteModifier(true);
+                        WriteModifier(false);
                         Write(constant);
                     }
                     WriteLine();
