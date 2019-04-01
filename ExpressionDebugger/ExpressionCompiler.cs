@@ -32,9 +32,8 @@ namespace ExpressionDebugger
             var path = filename;
             if (_options?.EmitFile == true)
             {
-                var root = _options?.RootPath;
-                if (root == null)
-                    root = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "GeneratedSources");
+                var root = _options?.RootPath 
+                           ?? Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "GeneratedSources");
                 Directory.CreateDirectory(root);
                 path = Path.Combine(root, filename);
                 using (var fs = new FileStream(path, FileMode.Create))
@@ -126,7 +125,7 @@ namespace ExpressionDebugger
                 }
 
                 assemblyStream.Seek(0, SeekOrigin.Begin);
-                symbolsStream?.Seek(0, SeekOrigin.Begin);
+                symbolsStream.Seek(0, SeekOrigin.Begin);
 
                 return AssemblyLoadContext.Default.LoadFromStream(assemblyStream, symbolsStream);
             }

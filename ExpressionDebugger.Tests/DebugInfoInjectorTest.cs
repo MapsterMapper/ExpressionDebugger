@@ -1,12 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Dynamic;
 using System.Linq;
 using System.Linq.Expressions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Microsoft.CSharp.RuntimeBinder;
 
-namespace ExpressionDebugger.Test
+namespace ExpressionDebugger.Tests
 {
     [TestClass]
     public class DebugInfoInjectorTest

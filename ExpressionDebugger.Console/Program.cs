@@ -1,5 +1,4 @@
-﻿using ExpressionDebugger;
-using System;
+﻿using System;
 using System.Linq.Expressions;
 
 namespace ExpressionDebugger.Console

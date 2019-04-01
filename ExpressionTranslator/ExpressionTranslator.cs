@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 #if !NETSTANDARD1_3
 using System.Dynamic;
 #endif
@@ -670,10 +671,7 @@ namespace ExpressionDebugger
 
         private Expression VisitConditionalBlock(ConditionalExpression node, bool shouldReturn, bool chain = false)
         {
-            if (chain)
-                WriteNextLine("else if (");
-            else
-                WriteNextLine("if (");
+            WriteNextLine(chain ? "else if (" : "if (");
             Expression test = Visit(node.Test);
             Write(")");
             Indent();
@@ -756,7 +754,7 @@ namespace ExpressionDebugger
                 else if (double.IsNegativeInfinity(d))
                     Write("double.NegativeInfinity");
                 else
-                    Write(d.ToString(), "d");
+                    Write(d.ToString(CultureInfo.InvariantCulture), "d");
             }
             else if (value is float f)
             {
@@ -767,7 +765,7 @@ namespace ExpressionDebugger
                 else if (float.IsNegativeInfinity(f))
                     Write("float.NegativeInfinity");
                 else
-                    Write(f.ToString(), "f");
+                    Write(f.ToString(CultureInfo.InvariantCulture), "f");
             }
             else if (value is decimal || value is long || value is uint || value is ulong)
             {
