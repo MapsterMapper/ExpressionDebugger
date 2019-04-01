@@ -281,7 +281,7 @@ namespace ExpressionDebugger
                 Indent(true);
                 result = VisitMultiline(node, true);
                 Outdent();
-                Write(")()");
+                Write("))()");
             }
             else if (ShouldGroup(node, parentNodeType, isRightNode))
             {
@@ -773,7 +773,7 @@ namespace ExpressionDebugger
             }
             else if (value is byte || value is sbyte || value is short || value is ushort)
             {
-                Write("(", Translate(value.GetType()), ")", value.ToString());
+                Write("((", Translate(value.GetType()), ")", value.ToString(), ")");
             }
             else if (value.GetType().GetTypeInfo().IsEnum)
             {

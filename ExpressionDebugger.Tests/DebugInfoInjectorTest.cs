@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Reflection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace ExpressionDebugger.Tests
@@ -20,6 +21,14 @@ public int Main(int a, int b)
     return a + b;
 }"
                 , str);
+        }
+
+        [TestMethod]
+        public void TestBinary_PowerAssign()
+        {
+            var exp = Expression.PowerAssign(Expression.Variable(typeof(double), "d"), Expression.Constant(2d));
+            var str = exp.ToScript();
+            Assert.AreEqual("d = Math.Pow(d, 2d)", str);
         }
 
         [TestMethod]
@@ -111,16 +120,25 @@ else
         }
 
         [TestMethod]
-        public void TestConstant()
+        public void TestConstants()
         {
-            Expression<Func<string, char>> fn = s => s == "x" || s == null || s.IsNormalized() == false || s.GetType() == typeof(string) ? 'x' : s[0];
+            Expression<Func<string, char>> fn = s => s == "x" || s == @"\" || s == null || s.IsNormalized() == false || s.GetType() == typeof(string) ? 'x' : s[0];
             var str = fn.ToScript();
             Assert.AreEqual(@"
 public char Main(string s)
 {
-    return s == ""x"" || s == null || s.IsNormalized() == false || s.GetType() == typeof(string) ? 'x' : s[0];
+    return s == ""x"" || s == @""\"" || s == null || s.IsNormalized() == false || s.GetType() == typeof(string) ? 'x' : s[0];
 }"
                 , str);
+
+            Expression<Func<string>> fn2 = () => 1f.ToString() + 2m.ToString() + ((byte)1).ToString() + DayOfWeek.Friday.ToString() + default(DateTime).ToString();
+            var str2 = fn2.ToScript();
+            Assert.AreEqual(@"
+public string Main()
+{
+    return 1f.ToString() + 2m.ToString() + ((byte)1).ToString() + DayOfWeek.Friday.ToString() + default(DateTime).ToString();
+}"
+                , str2);
         }
 
         [TestMethod]
@@ -130,7 +148,7 @@ public char Main(string s)
             var expr = Expression.Constant(now);
             var script = expr.ToScript();
             Assert.AreEqual(@"
-public DateTime DateTime1;
+private DateTime DateTime1;
 DateTime1", script);
         }
 
@@ -219,6 +237,26 @@ public int Main(int x)
 {
     return -(-x) + 1 + x - (1 - x);
 }"
+                , str);
+        }
+
+        [TestMethod]
+        public void TestGroup_MultiLine()
+        {
+            var p = Expression.Variable(typeof(int), "p");
+            var exp = Expression.Add(
+                p,
+                Expression.Block(
+                new Expression[] {
+                    Expression.Call(typeof(Console).GetMethod(nameof(Console.WriteLine), new [] { typeof(int) }), p),
+                    p,
+                }
+            ));
+            var str = exp.ToScript();
+            Assert.AreEqual(@"p + (new Func<int>(() => {
+    Console.WriteLine(p);
+    return p;
+}))()"
                 , str);
         }
 
@@ -597,6 +635,42 @@ public int Main(int[] a)
 public Expression Main(Expression expr)
 {
     return expr as UnaryExpression;
+}"
+                , str);
+        }
+
+        internal static int GetInternal() => 1;
+
+        [TestMethod]
+        public void TestToString()
+        {
+            var call = Expression.Call(
+                typeof(DebugInfoInjectorTest).GetMethod(nameof(GetInternal),
+                    BindingFlags.Static | BindingFlags.NonPublic)
+            );
+            var exp = Expression.Lambda<Func<int>>(call);
+            var str = exp.ToScript(new ExpressionDefinitions
+            {
+                IsStatic = true,
+                MethodName = "Main",
+                Namespace = "ExpressionDebugger.Tests",
+                TypeName = "MockClass"
+            });
+            Assert.AreEqual(@"
+using System;
+
+
+namespace ExpressionDebugger.Tests
+{
+    public static partial class MockClass
+    {
+        private static Func<int> GetInternal1;
+        
+        public static int Main()
+        {
+            return GetInternal1.Invoke();
+        }
+    }
 }"
                 , str);
         }
