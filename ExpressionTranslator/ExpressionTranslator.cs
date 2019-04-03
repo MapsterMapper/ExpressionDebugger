@@ -17,7 +17,7 @@ namespace ExpressionDebugger
         private const int _tabsize = 4;
         private StringWriter _writer;
         private int _indentLevel;
-        private StringWriter _appendWriter;
+        private List<StringWriter> _appendWriters;
 
         private Dictionary<Type, string> _typeNames;
         private HashSet<string> _usings;
@@ -1147,6 +1147,7 @@ namespace ExpressionDebugger
         }
 
         private HashSet<LambdaExpression> _visitedLambda;
+        private int _writerLevel;
         protected override Expression VisitLambda<T>(Expression<T> node)
         {
             Write(GetName(node));
@@ -1158,14 +1159,17 @@ namespace ExpressionDebugger
             _visitedLambda.Add(node);
 
             //switch writer to append writer
-            if (_appendWriter == null)
-                _appendWriter = new StringWriter();
+            if (_appendWriters == null)
+                _appendWriters = new List<StringWriter>();
+            if (_writerLevel == _appendWriters.Count)
+                _appendWriters.Add(new StringWriter());
 
             var temp = _writer;
             var oldIndent = _indentLevel;
             try
             {
-                _writer = _appendWriter;
+                _writer = _appendWriters[_writerLevel];
+                _writerLevel++;
                 ResetIndentLevel();
 
                 WriteLine();
@@ -1176,6 +1180,7 @@ namespace ExpressionDebugger
                 //switch back
                 _writer = temp;
                 _indentLevel = oldIndent;
+                _writerLevel--;
             }
         }
 
@@ -1819,8 +1824,13 @@ namespace ExpressionDebugger
                     WriteLine();
                 }
                 _writer.Write(temp);
-                if (_appendWriter != null)
-                    _writer.Write(_appendWriter);
+                if (_appendWriters != null)
+                {
+                    foreach (var item in _appendWriters)
+                    {
+                        _writer.Write(item);
+                    }
+                }
                 if (Definitions?.TypeName != null)
                 {
                     Outdent();
