@@ -1035,6 +1035,7 @@ namespace ExpressionDebugger
             return string.IsNullOrEmpty(lambda.Name) ? GetName("func", lambda) : lambda.Name;
         }
 
+        private HashSet<LabelTarget> _returnTargets;
         protected override Expression VisitGoto(GotoExpression node)
         {
             switch (node.Kind)
@@ -1043,6 +1044,9 @@ namespace ExpressionDebugger
                     Write("goto ", GetName(node.Target));
                     break;
                 case GotoExpressionKind.Return:
+                    if (_returnTargets == null)
+                        _returnTargets = new HashSet<LabelTarget>();
+                    _returnTargets.Add(node.Target);
                     var value = Visit("return ", node.Value);
                     return node.Update(node.Target, value);
                 case GotoExpressionKind.Break:
@@ -1092,7 +1096,8 @@ namespace ExpressionDebugger
 
         protected override Expression VisitLabel(LabelExpression node)
         {
-            Write(GetName(node.Target), ":");
+            if (_returnTargets == null || !_returnTargets.Contains(node.Target))
+                Write(GetName(node.Target), ":");
             return node;
         }
 
