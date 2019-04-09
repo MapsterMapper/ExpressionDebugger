@@ -1117,7 +1117,35 @@ namespace ExpressionDebugger
 
         private Expression VisitLambda(LambdaExpression node, LambdaType type)
         {
-            if (type == LambdaType.Function || type == LambdaType.Main)
+            if (type == LambdaType.Inline || this.Definitions?.IsExpression == true)
+            {
+                if (type == LambdaType.Main)
+                {
+                    var name = Definitions?.MethodName ?? "Main";
+                    WriteModifier(true);
+                    var funcType = MakeDelegateType(node.ReturnType, node.Parameters.Select(it => it.Type).ToArray());
+                    var exprType = typeof(Expression<>).MakeGenericType(funcType);
+                    Write(Translate(exprType), " ", name, " = ");
+                }
+                IList<ParameterExpression> args;
+                if (node.Parameters.Count == 1)
+                {
+                    args = new List<ParameterExpression>();
+                    var arg = VisitParameter(node.Parameters[0]);
+                    args.Add((ParameterExpression) arg);
+                }
+                else
+                {
+                    args = VisitArguments("(", node.Parameters.ToList(), p => (ParameterExpression) VisitParameter(p),")");
+                }
+
+                Write(" => ");
+                var body = VisitGroup(node.Body, ExpressionType.Quote);
+                if (type == LambdaType.Main)
+                    Write(";");
+                return Expression.Lambda(body, node.Name, node.TailCall, args);
+            }
+            else
             {
                 var name = type == LambdaType.Main
                     ? (Definitions?.MethodName ?? "Main")
@@ -1132,29 +1160,15 @@ namespace ExpressionDebugger
 
                 return Expression.Lambda(body, name, node.TailCall, args);
             }
-            else
-            {
-                IList<ParameterExpression> args;
-                if (node.Parameters.Count == 1)
-                {
-                    args = new List<ParameterExpression>();
-                    var arg = VisitParameter(node.Parameters[0]);
-                    args.Add((ParameterExpression)arg);
-                }
-                else
-                {
-                    args = VisitArguments("(", node.Parameters.ToList(), p => (ParameterExpression)VisitParameter(p), ")");
-                }
-                Write(" => ");
-                var body = VisitGroup(node.Body, ExpressionType.Quote);
-                return Expression.Lambda(body, node.Name, node.TailCall, args);
-            }
         }
 
         private HashSet<LambdaExpression> _visitedLambda;
         private int _writerLevel;
         protected override Expression VisitLambda<T>(Expression<T> node)
         {
+            if (this.Definitions?.IsExpression == true)
+                return VisitLambda(node, LambdaType.Function);
+
             Write(GetName(node));
 
             if (_visitedLambda == null)
@@ -1282,14 +1296,25 @@ namespace ExpressionDebugger
             return node.Update(args);
         }
 
-        private static Type GetDelegateType(MethodInfo method)
+        private static Type MakeDelegateType(Type returnType, params Type[] parameters)
         {
-            if (method.GetParameters().Any(it => it.IsOut || it.ParameterType.IsByRef))
-                throw new InvalidOperationException("Cannot handle non-public method");
-
-            if (method.ReturnType == typeof(void))
+            var del = GetDelegateType(returnType != typeof(void), parameters.Length);
+            if (del.GetTypeInfo().IsGenericTypeDefinition)
             {
-                switch (method.GetParameters().Length)
+                var types = parameters.AsEnumerable();
+                if (returnType != typeof(void))
+                    types = types.Concat(new[] { returnType });
+                del = del.MakeGenericType(types.ToArray());
+            }
+
+            return del;
+        }
+
+        private static Type GetDelegateType(bool isFunc, int argCount)
+        {
+            if (!isFunc)
+            {
+                switch (argCount)
                 {
                     case 0: return typeof(Action);
                     case 1: return typeof(Action<>);
@@ -1313,7 +1338,7 @@ namespace ExpressionDebugger
             }
             else
             {
-                switch (method.GetParameters().Length)
+                switch (argCount)
                 {
                     case 0: return typeof(Func<>);
                     case 1: return typeof(Func<,>);
@@ -1352,14 +1377,10 @@ namespace ExpressionDebugger
             else if (!node.Method.IsPublic || node.Method.DeclaringType?.GetTypeInfo().IsNotPublic == true)
             {
                 isNotPublic = true;
-                var del = GetDelegateType(node.Method);
-                if (del.GetTypeInfo().IsGenericTypeDefinition)
-                {
-                    var types = node.Method.GetParameters().Select(it => it.ParameterType);
-                    if (node.Method.ReturnType != typeof(void))
-                        types = types.Concat(new[] { node.Method.ReturnType });
-                    del = del.MakeGenericType(types.ToArray());
-                }
+                if (node.Method.GetParameters().Any(it => it.IsOut || it.ParameterType.IsByRef))
+                    throw new InvalidOperationException("Cannot handle non-public method");
+
+                var del = MakeDelegateType(node.Method.ReturnType, node.Method.GetParameters().Select(it => it.ParameterType).ToArray());
                 var func = node.Method.CreateDelegate(del);
                 Write(GetConstant(func, GetVarName(node.Method.Name)), ".Invoke");
             }

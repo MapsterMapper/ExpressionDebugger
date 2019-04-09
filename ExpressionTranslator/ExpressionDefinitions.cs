@@ -10,5 +10,6 @@ namespace ExpressionDebugger
         public bool IsStatic { get; set; }
         public string MethodName { get; set; }
         public IEnumerable<Type> Implements { get; set; }
+        public bool IsExpression { get; set; }
     }
 }
