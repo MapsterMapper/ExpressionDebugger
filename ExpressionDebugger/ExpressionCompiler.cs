@@ -9,7 +9,6 @@ using System.IO;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
-using System.Runtime.Loader;
 using System.Text;
 
 namespace ExpressionDebugger
@@ -78,8 +77,11 @@ namespace ExpressionDebugger
             if (_options?.References != null)
                 references.UnionWith(_options.References);
             references.Add(typeof(object).Assembly);
+
+#if NETSTANDARD2_0
             references.Add(Assembly.Load(new AssemblyName("System.Runtime")));
             references.Add(Assembly.Load(new AssemblyName("System.Collections")));
+#endif
 
             var assemblyName = Path.GetRandomFileName();
             var symbolsName = Path.ChangeExtension(assemblyName, "pdb");
@@ -127,7 +129,11 @@ namespace ExpressionDebugger
                 assemblyStream.Seek(0, SeekOrigin.Begin);
                 symbolsStream.Seek(0, SeekOrigin.Begin);
 
-                return AssemblyLoadContext.Default.LoadFromStream(assemblyStream, symbolsStream);
+#if NETSTANDARD2_0
+                return System.Runtime.Loader.AssemblyLoadContext.Default.LoadFromStream(assemblyStream, symbolsStream);
+#else
+                return Assembly.Load(assemblyStream.ToArray(), symbolsStream.ToArray());
+#endif
             }
         }
 
