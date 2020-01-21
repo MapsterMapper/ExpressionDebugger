@@ -79,6 +79,7 @@ namespace ExpressionDebugger
             references.Add(typeof(object).Assembly);
 
 #if NETSTANDARD2_0
+            references.Add(Assembly.Load(new AssemblyName("netstandard")));
             references.Add(Assembly.Load(new AssemblyName("System.Runtime")));
             references.Add(Assembly.Load(new AssemblyName("System.Collections")));
 #endif

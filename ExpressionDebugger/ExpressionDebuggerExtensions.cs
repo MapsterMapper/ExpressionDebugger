@@ -32,6 +32,8 @@ namespace System.Linq.Expressions
             }
             catch (Exception ex)
             {
+                if (options?.ThrowOnFailedCompilation == true)
+                    throw;
                 Debug.Print(ex.ToString());
                 return node.Compile();
             }

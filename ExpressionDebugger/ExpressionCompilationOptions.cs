@@ -10,5 +10,6 @@ namespace ExpressionDebugger
         public bool EmitFile { get; set; }
         public string RootPath { get; set; }
         public bool? IsRelease { get; set; }
+        public bool ThrowOnFailedCompilation { get; set; }
     }
 }
