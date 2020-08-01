@@ -14,24 +14,25 @@ namespace ExpressionDebugger
 {
     public class ExpressionTranslator : ExpressionVisitor
     {
-        private const int _tabsize = 4;
+        private const int Tabsize = 4;
         private StringWriter _writer;
         private int _indentLevel;
-        private List<StringWriter> _appendWriters;
+        private List<StringWriter>? _appendWriters;
 
-        private Dictionary<Type, string> _typeNames;
-        private HashSet<string> _usings;
-        private Dictionary<object, string> _constants;
-        private Dictionary<Type, object> _defaults;
+        private Dictionary<Type, string>? _typeNames;
+        private HashSet<string>? _usings;
+        private Dictionary<object, string>? _constants;
+        private Dictionary<Type, object>? _defaults;
+        private Dictionary<string, Type>? _methods;
 
-        public Dictionary<object, string> Constants => _constants ?? (_constants = new Dictionary<object, string>());
-        public Dictionary<Type, string> TypeNames => _typeNames ?? (_typeNames = new Dictionary<Type, string>());
+        public Dictionary<object, string> Constants => _constants ??= new Dictionary<object, string>();
+        public Dictionary<Type, string> TypeNames => _typeNames ??= new Dictionary<Type, string>();
+        public Dictionary<string, Type> Methods => _methods ??= new Dictionary<string, Type>();
 
         public bool HasDynamic { get; private set; }
-        public ExpressionDefinitions Definitions { get; }
-        public Expression Expression { get; private set; }
+        public TypeDefinitions? Definitions { get; }
 
-        private ExpressionTranslator(ExpressionDefinitions definitions = null)
+        public ExpressionTranslator(TypeDefinitions? definitions = null)
         {
             Definitions = definitions;
             _writer = new StringWriter();
@@ -49,14 +50,15 @@ namespace ExpressionDebugger
             }
         }
 
-        public static ExpressionTranslator Create(Expression node, ExpressionDefinitions definitions = null)
+        public static ExpressionTranslator Create(Expression node, ExpressionDefinitions? definitions = null)
         {
             var translator = new ExpressionTranslator(definitions);
             if (node.NodeType == ExpressionType.Lambda)
-                translator.VisitLambda((LambdaExpression)node, LambdaType.Main);
+                translator.VisitLambda((LambdaExpression)node, 
+                    definitions?.IsExpression == true ? LambdaType.PublicLambda : LambdaType.PublicMethod,
+                    definitions?.MethodName);
             else
                 translator.Visit(node);
-            translator.Expression = node;
             return translator;
         }
 
@@ -229,7 +231,7 @@ namespace ExpressionDebugger
         {
             _writer.WriteLine();
 
-            var spaceCount = _indentLevel * _tabsize;
+            var spaceCount = _indentLevel * Tabsize;
             _writer.Write(new string(' ', spaceCount));
         }
 
@@ -372,7 +374,7 @@ namespace ExpressionDebugger
             {
                 if (node.NodeType == ExpressionType.PowerAssign)
                 {
-                    left = VisitGroup(node.Left, node.NodeType);
+                    VisitGroup(node.Left, node.NodeType);
                     Write(" = ");
                 }
                 Write(Translate(typeof(Math)), ".Pow(");
@@ -443,10 +445,8 @@ namespace ExpressionDebugger
             if (underlyingType != null)
                 return Translate(underlyingType) + "?";
 
-            if (_usings == null)
-                _usings = new HashSet<string>();
-            if (_typeNames == null)
-                _typeNames = new Dictionary<Type, string>();
+            _usings ??= new HashSet<string>();
+            _typeNames ??= new Dictionary<Type, string>();
             if (!_typeNames.TryGetValue(type, out var name))
             {
                 name = GetTypeName(type);
@@ -788,8 +788,7 @@ namespace ExpressionDebugger
                 var type = value.GetType();
                 if (type.GetTypeInfo().IsValueType)
                 {
-                    if (_defaults == null)
-                        _defaults = new Dictionary<Type, object>();
+                    _defaults ??= new Dictionary<Type, object>();
                     if (!_defaults.TryGetValue(type, out var def))
                     {
                         def = Activator.CreateInstance(type);
@@ -974,38 +973,19 @@ namespace ExpressionDebugger
             }
         }
 
-        private Dictionary<string, int> _counter;
-        private Dictionary<object, int> _ids;
-        private string GetName(string type, object obj)
+        private Dictionary<string, int>? _counter;
+        private Dictionary<object, int>? _ids;
+
+        private string GetConstant(object obj, string? typeName = null)
         {
-            if (_ids == null)
-                _ids = new Dictionary<object, int>();
-
-            if (_ids.TryGetValue(obj, out int id))
-                return type + id;
-
-            if (_counter == null)
-                _counter = new Dictionary<string, int>();
-            _counter.TryGetValue(type, out id);
-            id++;
-            _counter[type] = id;
-            _ids[obj] = id;
-            return type + id;
-        }
-
-        private string GetConstant(object obj, string typeName = null)
-        {
-            if (_constants == null)
-                _constants = new Dictionary<object, string>();
+            _constants ??= new Dictionary<object, string>();
 
             if (_constants.TryGetValue(obj, out var name))
                 return name;
 
-            if (_counter == null)
-                _counter = new Dictionary<string, int>();
+            _counter ??= new Dictionary<string, int>();
 
-            if (typeName == null)
-                typeName = GetVarName(obj.GetType().Name);
+            typeName ??= GetVarName(obj.GetType().Name);
 
             _counter.TryGetValue(typeName, out var id);
             id++;
@@ -1013,6 +993,21 @@ namespace ExpressionDebugger
             name = typeName + id;
             _constants[obj] = name;
             return name;
+        }
+
+        private string GetName(string type, object obj)
+        {
+            _ids ??= new Dictionary<object, int>();
+
+            if (_ids.TryGetValue(obj, out int id))
+                return type + id;
+
+            _counter ??= new Dictionary<string, int>();
+            _counter.TryGetValue(type, out id);
+            id++;
+            _counter[type] = id;
+            _ids[obj] = id;
+            return type + id;
         }
 
         private string GetName(LabelTarget label)
@@ -1030,12 +1025,15 @@ namespace ExpressionDebugger
                 return param.Name;
         }
 
-        private string GetName(LambdaExpression lambda)
+        private string GetName(LambdaExpression lambda, string defaultMethodName = "Main")
         {
-            return string.IsNullOrEmpty(lambda.Name) ? GetName("func", lambda) : lambda.Name;
+            var main = Definitions?.TypeName != null
+                ? defaultMethodName
+                : "";
+            return string.IsNullOrEmpty(lambda.Name) ? GetName("func" + main, lambda) : lambda.Name;
         }
 
-        private HashSet<LabelTarget> _returnTargets;
+        private HashSet<LabelTarget>? _returnTargets;
         protected override Expression VisitGoto(GotoExpression node)
         {
             switch (node.Kind)
@@ -1044,8 +1042,7 @@ namespace ExpressionDebugger
                     Write("goto ", GetName(node.Target));
                     break;
                 case GotoExpressionKind.Return:
-                    if (_returnTargets == null)
-                        _returnTargets = new HashSet<LabelTarget>();
+                    _returnTargets ??= new HashSet<LabelTarget>();
                     _returnTargets.Add(node.Target);
                     var value = Visit("return ", node.Value);
                     return node.Update(node.Target, value);
@@ -1056,12 +1053,12 @@ namespace ExpressionDebugger
                     Write("continue");
                     break;
                 default:
-                    throw new ArgumentOutOfRangeException();
+                    throw new ArgumentOutOfRangeException(nameof(node));
             }
             return node;
         }
 
-        private Expression VisitMember(Expression instance, Expression node, MemberInfo member)
+        private Expression? VisitMember(Expression instance, Expression node, MemberInfo member)
         {
             if (instance != null)
             {
@@ -1115,17 +1112,19 @@ namespace ExpressionDebugger
                 Write("static ");
         }
 
-        private Expression VisitLambda(LambdaExpression node, LambdaType type)
+        private int _inlineCount;
+        public Expression VisitLambda(LambdaExpression node, LambdaType type, string? methodName = null)
         {
-            if (type == LambdaType.Inline || this.Definitions?.IsExpression == true)
+            if (type == LambdaType.PrivateLambda || type == LambdaType.PublicLambda)
             {
-                if (type == LambdaType.Main)
+                _inlineCount++;
+                if (type == LambdaType.PublicLambda)
                 {
-                    var name = Definitions?.MethodName ?? "Main";
+                    var name = methodName ?? "Main";
                     WriteModifier(true);
                     var funcType = MakeDelegateType(node.ReturnType, node.Parameters.Select(it => it.Type).ToArray());
                     var exprType = typeof(Expression<>).MakeGenericType(funcType);
-                    Write(Translate(exprType), " ", name, " = ");
+                    Write(Translate(exprType), " ", name, " => ");
                 }
                 IList<ParameterExpression> args;
                 if (node.Parameters.Count == 1)
@@ -1141,16 +1140,24 @@ namespace ExpressionDebugger
 
                 Write(" => ");
                 var body = VisitGroup(node.Body, ExpressionType.Quote);
-                if (type == LambdaType.Main)
+                if (type == LambdaType.PublicLambda)
                     Write(";");
+                _inlineCount--;
                 return Expression.Lambda(body, node.Name, node.TailCall, args);
             }
             else
             {
-                var name = type == LambdaType.Main
-                    ? (Definitions?.MethodName ?? "Main")
-                    : GetName(node);
-                WriteModifier(type == LambdaType.Main);
+                var name = methodName ?? "Main";
+                if (type == LambdaType.PublicMethod)
+                {
+                    WriteModifier(true);
+                    this.Methods[name] = node.Type;
+                }
+                else
+                {
+                    name = GetName(node, name);
+                    WriteModifier(false);
+                }
                 Write(Translate(node.ReturnType), " ", name);
                 var args = VisitArguments("(", node.Parameters, VisitParameterDeclaration, ")");
                 Indent();
@@ -1162,24 +1169,22 @@ namespace ExpressionDebugger
             }
         }
 
-        private HashSet<LambdaExpression> _visitedLambda;
+        private HashSet<LambdaExpression>? _visitedLambda;
         private int _writerLevel;
         protected override Expression VisitLambda<T>(Expression<T> node)
         {
-            if (this.Definitions?.IsExpression == true)
-                return VisitLambda(node, LambdaType.Function);
+            if (_inlineCount > 0)
+                return VisitLambda(node, LambdaType.PrivateLambda);
 
             Write(GetName(node));
 
-            if (_visitedLambda == null)
-                _visitedLambda = new HashSet<LambdaExpression>();
+            _visitedLambda ??= new HashSet<LambdaExpression>();
             if (_visitedLambda.Contains(node))
                 return node;
             _visitedLambda.Add(node);
 
             //switch writer to append writer
-            if (_appendWriters == null)
-                _appendWriters = new List<StringWriter>();
+            _appendWriters ??= new List<StringWriter>();
             if (_writerLevel == _appendWriters.Count)
                 _appendWriters.Add(new StringWriter());
 
@@ -1192,7 +1197,7 @@ namespace ExpressionDebugger
                 ResetIndentLevel();
 
                 WriteLine();
-                return VisitLambda(node, LambdaType.Function);
+                return VisitLambda(node, LambdaType.PrivateMethod);
             }
             finally
             {
@@ -1212,8 +1217,7 @@ namespace ExpressionDebugger
             }
             else if (list.Count <= 4)
             {
-                var init = list[0] as MemberBinding;
-                wrap = init != null && list.Count > 1;
+                wrap = list[0] is MemberBinding && list.Count > 1;
             }
             if (wrap)
                 WriteLine();
@@ -1366,7 +1370,7 @@ namespace ExpressionDebugger
         {
             var isExtension = false;
             var isNotPublic = false;
-            Expression arg0 = null;
+            Expression? arg0 = null;
 
             var obj = node.Object;
             if (obj != null)
@@ -1389,7 +1393,7 @@ namespace ExpressionDebugger
             {
                 isExtension = true;
                 arg0 = VisitGroup(node.Arguments[0], node.NodeType);
-                Translate(node.Method.DeclaringType);   //execute type without print
+                Translate(node.Method.DeclaringType!);   //execute type without print
             }
             else if (node.Method.DeclaringType != null)
             {
@@ -1446,6 +1450,7 @@ namespace ExpressionDebugger
             {
                 var elemType = node.Type.GetElementType();
                 var arrayCount = 1;
+                // ReSharper disable once PossibleNullReferenceException
                 while (elemType.IsArray)
                 {
                     elemType = elemType.GetElementType();
@@ -1563,12 +1568,11 @@ namespace ExpressionDebugger
             return VisitParameter(node, true);
         }
 
-        private HashSet<ParameterExpression> _pendingVariables;
-        private Dictionary<ParameterExpression, ParameterExpression> _params;
+        private HashSet<ParameterExpression>? _pendingVariables;
+        private Dictionary<ParameterExpression, ParameterExpression>? _params;
         private Expression VisitParameter(ParameterExpression node, bool write)
         {
-            if (_pendingVariables == null)
-                _pendingVariables = new HashSet<ParameterExpression>();
+            _pendingVariables ??= new HashSet<ParameterExpression>();
 
             var name = GetName(node);
             if (write)
@@ -1591,8 +1595,7 @@ namespace ExpressionDebugger
             if (!string.IsNullOrEmpty(node.Name))
                 return node;
 
-            if (_params == null)
-                _params = new Dictionary<ParameterExpression, ParameterExpression>();
+            _params ??= new Dictionary<ParameterExpression, ParameterExpression>();
             if (!_params.TryGetValue(node, out var result))
             {
                 result = Expression.Parameter(node.Type, name);
@@ -1671,7 +1674,7 @@ namespace ExpressionDebugger
 
         private Expression VisitTry(TryExpression node, bool shouldReturn)
         {
-            string faultParam = null;
+            string? faultParam = null;
             if (node.Fault != null)
             {
                 faultParam = GetName("fault", node);
@@ -1681,7 +1684,7 @@ namespace ExpressionDebugger
             Indent();
             var body = VisitBody(node.Body, shouldReturn);
             if (node.Fault != null)
-                WriteNextLine(faultParam, " = false;");
+                WriteNextLine(faultParam!, " = false;");
             Outdent();
             var handlers = node.Handlers.Select(c => VisitCatchBlock(c, shouldReturn)).ToList();
             var @finally = node.Finally;
@@ -1694,7 +1697,7 @@ namespace ExpressionDebugger
                     @finally = VisitBody(node.Finally);
                 if (node.Fault != null)
                 {
-                    WriteNextLine("if (", faultParam, ")");
+                    WriteNextLine("if (", faultParam!, ")");
                     Indent();
                     fault = VisitBody(node.Fault);
                     Outdent();
@@ -1771,7 +1774,7 @@ namespace ExpressionDebugger
             }
 
             var operand = node.NodeType == ExpressionType.Quote && node.Operand.NodeType == ExpressionType.Lambda
-                ? VisitLambda((LambdaExpression)node.Operand, LambdaType.Inline)
+                ? VisitLambda((LambdaExpression)node.Operand, LambdaType.PrivateLambda)
                 : VisitUnary(node.Operand, node.NodeType);
 
             switch (node.NodeType)
@@ -1826,7 +1829,7 @@ namespace ExpressionDebugger
                         }
                         WriteLine();
                     }
-                    if (Definitions?.Namespace != null)
+                    if (Definitions.Namespace != null)
                     {
                         WriteNextLine("namespace ", Definitions.Namespace);
                         Indent();
@@ -1872,11 +1875,12 @@ namespace ExpressionDebugger
             }
         }
 
-        private enum LambdaType
+        public enum LambdaType
         {
-            Main,
-            Inline,
-            Function,
+            PublicMethod,
+            PublicLambda,
+            PrivateMethod,
+            PrivateLambda,
         }
     }
 }

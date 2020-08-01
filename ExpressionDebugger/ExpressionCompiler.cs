@@ -17,8 +17,8 @@ namespace ExpressionDebugger
     {
         public List<ExpressionTranslator> Translators { get; } = new List<ExpressionTranslator>();
 
-        private readonly ExpressionCompilationOptions _options;
-        public ExpressionCompiler(ExpressionCompilationOptions options = null)
+        private readonly ExpressionCompilationOptions? _options;
+        public ExpressionCompiler(ExpressionCompilationOptions? options = null)
         {
             _options = options;
         }
@@ -35,10 +35,8 @@ namespace ExpressionDebugger
                            ?? Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "GeneratedSources");
                 Directory.CreateDirectory(root);
                 path = Path.Combine(root, filename);
-                using (var fs = new FileStream(path, FileMode.Create))
-                {
-                    fs.Write(buffer, 0, buffer.Length);
-                }
+                using var fs = new FileStream(path, FileMode.Create);
+                fs.Write(buffer, 0, buffer.Length);
             }
 
             var sourceText = SourceText.From(buffer, buffer.Length, Encoding.UTF8, canBeEmbedded: true);
@@ -53,12 +51,10 @@ namespace ExpressionDebugger
             _codes.Add(encoded);
         }
 
-        public void AddFile(LambdaExpression node, ExpressionDefinitions definitions = null)
+        public void AddFile(LambdaExpression node, ExpressionDefinitions? definitions = null)
         {
-            if (definitions == null)
-                definitions = _options?.DefaultDefinitions ?? new ExpressionDefinitions { IsStatic = true };
-            if (definitions.TypeName == null)
-                definitions.TypeName = "Program";
+            definitions ??= _options?.DefaultDefinitions ?? new ExpressionDefinitions {IsStatic = true};
+            definitions.TypeName ??= "Program";
 
             var translator = ExpressionTranslator.Create(node, definitions);
             var script = translator.ToString();
@@ -98,44 +94,42 @@ namespace ExpressionDebugger
                     .WithPlatform(Platform.AnyCpu)
             );
 
-            using (var assemblyStream = new MemoryStream())
-            using (var symbolsStream = new MemoryStream())
+            using var assemblyStream = new MemoryStream();
+            using var symbolsStream = new MemoryStream();
+            var emitOptions = new EmitOptions(
+                debugInformationFormat: DebugInformationFormat.PortablePdb,
+                pdbFilePath: symbolsName);
+
+            var embeddedTexts = _codes.Select(it => EmbeddedText.FromSource(it.FilePath, it.GetText()));
+
+            EmitResult result = compilation.Emit(
+                peStream: assemblyStream,
+                pdbStream: symbolsStream,
+                embeddedTexts: embeddedTexts,
+                options: emitOptions);
+
+            if (!result.Success)
             {
-                var emitOptions = new EmitOptions(
-                        debugInformationFormat: DebugInformationFormat.PortablePdb,
-                        pdbFilePath: symbolsName);
+                var errors = new List<string>();
 
-                var embeddedTexts = _codes.Select(it => EmbeddedText.FromSource(it.FilePath, it.GetText()));
+                IEnumerable<Diagnostic> failures = result.Diagnostics.Where(diagnostic =>
+                    diagnostic.IsWarningAsError ||
+                    diagnostic.Severity == DiagnosticSeverity.Error);
 
-                EmitResult result = compilation.Emit(
-                    peStream: assemblyStream,
-                    pdbStream: symbolsStream,
-                    embeddedTexts: embeddedTexts,
-                    options: emitOptions);
+                foreach (Diagnostic diagnostic in failures)
+                    errors.Add($"{diagnostic.Id}: {diagnostic.GetMessage()}");
 
-                if (!result.Success)
-                {
-                    var errors = new List<string>();
+                throw new InvalidOperationException(string.Join("\n", errors));
+            }
 
-                    IEnumerable<Diagnostic> failures = result.Diagnostics.Where(diagnostic =>
-                        diagnostic.IsWarningAsError ||
-                        diagnostic.Severity == DiagnosticSeverity.Error);
-
-                    foreach (Diagnostic diagnostic in failures)
-                        errors.Add($"{diagnostic.Id}: {diagnostic.GetMessage()}");
-
-                    throw new Exception(string.Join("\n", errors));
-                }
-
-                assemblyStream.Seek(0, SeekOrigin.Begin);
-                symbolsStream.Seek(0, SeekOrigin.Begin);
+            assemblyStream.Seek(0, SeekOrigin.Begin);
+            symbolsStream.Seek(0, SeekOrigin.Begin);
 
 #if NETSTANDARD2_0
-                return System.Runtime.Loader.AssemblyLoadContext.Default.LoadFromStream(assemblyStream, symbolsStream);
+            return System.Runtime.Loader.AssemblyLoadContext.Default.LoadFromStream(assemblyStream, symbolsStream);
 #else
                 return Assembly.Load(assemblyStream.ToArray(), symbolsStream.ToArray());
 #endif
-            }
         }
 
     }

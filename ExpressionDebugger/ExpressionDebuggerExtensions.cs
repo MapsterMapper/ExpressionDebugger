@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.Reflection;
 
+// ReSharper disable once CheckNamespace
 namespace System.Linq.Expressions
 {
     public static class ExpressionDebuggerExtensions
@@ -41,12 +42,13 @@ namespace System.Linq.Expressions
 
         public static Delegate CreateDelegate(this ExpressionTranslator translator, Assembly assembly)
         {
-            var definitions = translator.Definitions;
+            var definitions = translator.Definitions!;
             var typeName = definitions.Namespace == null
                 ? definitions.TypeName
-                : (definitions.Namespace + "." + definitions.TypeName);
+                : definitions.Namespace + "." + definitions.TypeName;
             var type = assembly.GetType(typeName);
-            var method = type.GetMethod(definitions.MethodName ?? "Main");
+            var main = translator.Methods.First();
+            var method = type.GetMethod(main.Key);
             var obj = definitions.IsStatic ? null : Activator.CreateInstance(type);
             var flag = definitions.IsStatic ? BindingFlags.Static : BindingFlags.Instance;
             foreach (var kvp in translator.Constants)
@@ -54,7 +56,7 @@ namespace System.Linq.Expressions
                 var field = type.GetField(kvp.Value, BindingFlags.NonPublic | flag);
                 field.SetValue(obj, kvp.Key);
             }
-            return method.CreateDelegate(translator.Expression.Type, obj);
+            return method.CreateDelegate(main.Value, obj);
         }
     }
 }

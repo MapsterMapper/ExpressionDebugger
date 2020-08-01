@@ -12,11 +12,11 @@
     <SignAssembly>True</SignAssembly>
     <PublicSign Condition=" '$(OS)' != 'Windows_NT' ">true</PublicSign>
     <AssemblyOriginatorKeyFile>ExpressionTranslator.snk</AssemblyOriginatorKeyFile>
-    <Version>2.1.0</Version>
-    <FileVersion>2.1.0</FileVersion>
-    <AssemblyVersion>2.1.0</AssemblyVersion>
+    <Version>2.2.0</Version>
     <RootNamespace>ExpressionDebugger</RootNamespace>
     <PackageLicenseUrl>https://github.com/chaowlert/ExpressionDebugger/blob/master/LICENSE</PackageLicenseUrl>
+    <LangVersion>8.0</LangVersion>
+    <Nullable>enable</Nullable>
   </PropertyGroup>
 
   <ItemGroup Condition=" '$(TargetFramework)' == 'net40' ">	

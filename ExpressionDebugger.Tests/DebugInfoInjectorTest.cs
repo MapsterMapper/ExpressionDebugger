@@ -681,7 +681,7 @@ namespace ExpressionDebugger.Tests
             Expression<Func<Data, Data>> lambda = data => new Data {Id = data.Id + "1", Records = data.Records.Select(it => it + 1)};
             var str = lambda.ToScript(new ExpressionDefinitions {IsExpression = true});
             Assert.AreEqual(@"
-public Expression<Func<DebugInfoInjectorTest.Data, DebugInfoInjectorTest.Data>> Main = data => new DebugInfoInjectorTest.Data()
+public Expression<Func<DebugInfoInjectorTest.Data, DebugInfoInjectorTest.Data>> Main => data => new DebugInfoInjectorTest.Data()
 {
     Id = data.Id + ""1"",
     Records = data.Records.Select<int, int>(it => it + 1)
