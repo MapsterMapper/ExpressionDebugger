@@ -15,12 +15,12 @@ namespace System.Linq.Expressions
         /// <param name="node">Lambda expression</param>
         /// <param name="options">Compilation options</param>
         /// <returns>Generated method</returns>
-        public static T CompileWithDebugInfo<T>(this Expression<T> node, ExpressionCompilationOptions options = null)
+        public static T CompileWithDebugInfo<T>(this Expression<T> node, ExpressionCompilationOptions? options = null)
         {
             return (T)(object)CompileWithDebugInfo((LambdaExpression)node, options);
         }
 
-        public static Delegate CompileWithDebugInfo(this LambdaExpression node, ExpressionCompilationOptions options = null)
+        public static Delegate CompileWithDebugInfo(this LambdaExpression node, ExpressionCompilationOptions? options = null)
         {
             try
             {
@@ -48,12 +48,12 @@ namespace System.Linq.Expressions
                 : definitions.Namespace + "." + definitions.TypeName;
             var type = assembly.GetType(typeName);
             var main = translator.Methods.First();
-            var method = type.GetMethod(main.Key);
+            var method = type.GetMethod(main.Key)!;
             var obj = definitions.IsStatic ? null : Activator.CreateInstance(type);
             var flag = definitions.IsStatic ? BindingFlags.Static : BindingFlags.Instance;
             foreach (var kvp in translator.Constants)
             {
-                var field = type.GetField(kvp.Value, BindingFlags.NonPublic | flag);
+                var field = type.GetField(kvp.Value, BindingFlags.NonPublic | flag)!;
                 field.SetValue(obj, kvp.Key);
             }
             return method.CreateDelegate(main.Value, obj);

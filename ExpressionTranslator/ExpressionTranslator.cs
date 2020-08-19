@@ -19,15 +19,20 @@ namespace ExpressionDebugger
         private int _indentLevel;
         private List<StringWriter>? _appendWriters;
 
-        private Dictionary<Type, string>? _typeNames;
         private HashSet<string>? _usings;
-        private Dictionary<object, string>? _constants;
         private Dictionary<Type, object>? _defaults;
-        private Dictionary<string, Type>? _methods;
 
+        private Dictionary<object, string>? _constants;
         public Dictionary<object, string> Constants => _constants ??= new Dictionary<object, string>();
+
+        private Dictionary<Type, string>? _typeNames;
         public Dictionary<Type, string> TypeNames => _typeNames ??= new Dictionary<Type, string>();
+
+        private Dictionary<string, Type>? _methods;
         public Dictionary<string, Type> Methods => _methods ??= new Dictionary<string, Type>();
+
+        private List<PropertyDefinitions>? _properties;
+        public List<PropertyDefinitions> Properties => _properties ??= new List<PropertyDefinitions>();
 
         public bool HasDynamic { get; private set; }
         public TypeDefinitions? Definitions { get; }
@@ -56,7 +61,8 @@ namespace ExpressionDebugger
             if (node.NodeType == ExpressionType.Lambda)
                 translator.VisitLambda((LambdaExpression)node, 
                     definitions?.IsExpression == true ? LambdaType.PublicLambda : LambdaType.PublicMethod,
-                    definitions?.MethodName);
+                    definitions?.MethodName,
+                    definitions?.IsInternal ?? false);
             else
                 translator.Visit(node);
             return translator;
@@ -169,7 +175,7 @@ namespace ExpressionDebugger
             }
         }
 
-        private static bool ShouldGroup(Expression node, ExpressionType parentNodeType, bool isRightNode)
+        private static bool ShouldGroup(Expression? node, ExpressionType parentNodeType, bool isRightNode)
         {
             if (node == null)
                 return false;
@@ -206,17 +212,17 @@ namespace ExpressionDebugger
             }
         }
 
-        private void Write(string text)
-        {
-            _writer.Write(text);
-        }
-
         private Expression Visit(string open, Expression node, params string[] end)
         {
             Write(open);
             var result = Visit(node);
             Write(end);
             return result;
+        }
+
+        private void Write(string text)
+        {
+            _writer.Write(text);
         }
 
         private void Write(params string[] texts)
@@ -235,12 +241,6 @@ namespace ExpressionDebugger
             _writer.Write(new string(' ', spaceCount));
         }
 
-        private void WriteNextLine(string text)
-        {
-            WriteLine();
-            Write(text);
-        }
-
         private Expression VisitNextLine(string open, Expression node, params string[] end)
         {
             WriteLine();
@@ -248,6 +248,12 @@ namespace ExpressionDebugger
             var result = Visit(node);
             Write(end);
             return result;
+        }
+
+        private void WriteNextLine(string text)
+        {
+            WriteLine();
+            Write(text);
         }
 
         private void WriteNextLine(params string[] texts)
@@ -446,16 +452,15 @@ namespace ExpressionDebugger
                 return Translate(underlyingType) + "?";
 
             _usings ??= new HashSet<string>();
-            _typeNames ??= new Dictionary<Type, string>();
-            if (!_typeNames.TryGetValue(type, out var name))
+            if (!this.TypeNames.TryGetValue(type, out var name))
             {
                 name = GetTypeName(type);
-                var count = _typeNames.Count(kvp => GetTypeName(kvp.Key) == name);
+                var count = this.TypeNames.Count(kvp => GetTypeName(kvp.Key) == name);
                 if (count > 0)
                     name += count + 1;
                 else if (!string.IsNullOrEmpty(type.Namespace))
                     _usings.Add(type.Namespace);
-                _typeNames.Add(type, name);
+                this.TypeNames.Add(type, name);
             }
 
             return name;
@@ -706,7 +711,7 @@ namespace ExpressionDebugger
             return VisitConditional(node, false);
         }
 
-        private void WriteValue(object value)
+        private void WriteValue(object? value)
         {
             if (value == null)
             {
@@ -928,7 +933,7 @@ namespace ExpressionDebugger
         }
 #endif
 
-        private IList<T> VisitArguments<T>(string open, IList<T> args, Func<T, T> func, string end, bool wrap = false, IList<string> prefix = null) where T : class
+        private IList<T> VisitArguments<T>(string open, IList<T> args, Func<T, T> func, string end, bool wrap = false, IList<string>? prefix = null) where T : class
         {
             Write(open);
             if (wrap)
@@ -978,9 +983,7 @@ namespace ExpressionDebugger
 
         private string GetConstant(object obj, string? typeName = null)
         {
-            _constants ??= new Dictionary<object, string>();
-
-            if (_constants.TryGetValue(obj, out var name))
+            if (this.Constants.TryGetValue(obj, out var name))
                 return name;
 
             _counter ??= new Dictionary<string, int>();
@@ -991,7 +994,7 @@ namespace ExpressionDebugger
             id++;
             _counter[typeName] = id;
             name = typeName + id;
-            _constants[obj] = name;
+            this.Constants[obj] = name;
             return name;
         }
 
@@ -1058,7 +1061,7 @@ namespace ExpressionDebugger
             return node;
         }
 
-        private Expression? VisitMember(Expression instance, Expression node, MemberInfo member)
+        private Expression? VisitMember(Expression? instance, Expression node, MemberInfo member)
         {
             if (instance != null)
             {
@@ -1105,15 +1108,20 @@ namespace ExpressionDebugger
             return (ParameterExpression)Visit(Translate(node.Type) + " ", node);
         }
 
-        private void WriteModifier(bool isPublic)
+        private void WriteModifier(string modifier)
         {
-            WriteNextLine(isPublic ? "public " : "private ");
+            Write(modifier, " ");
             if (Definitions?.IsStatic == true)
                 Write("static ");
         }
+        private void WriteModifierNextLine(string modifier)
+        {
+            WriteLine();
+            WriteModifier(modifier);
+        }
 
         private int _inlineCount;
-        public Expression VisitLambda(LambdaExpression node, LambdaType type, string? methodName = null)
+        public Expression VisitLambda(LambdaExpression node, LambdaType type, string? methodName = null, bool isInternal = false)
         {
             if (type == LambdaType.PrivateLambda || type == LambdaType.PublicLambda)
             {
@@ -1121,7 +1129,9 @@ namespace ExpressionDebugger
                 if (type == LambdaType.PublicLambda)
                 {
                     var name = methodName ?? "Main";
-                    WriteModifier(true);
+                    if (!isInternal)
+                        isInternal = node.ReturnType.GetTypeInfo().IsNotPublic || node.Parameters.Any(it => it.Type.GetTypeInfo().IsNotPublic);
+                    WriteModifierNextLine(isInternal ? "internal" : "public");
                     var funcType = MakeDelegateType(node.ReturnType, node.Parameters.Select(it => it.Type).ToArray());
                     var exprType = typeof(Expression<>).MakeGenericType(funcType);
                     Write(Translate(exprType), " ", name, " => ");
@@ -1148,18 +1158,29 @@ namespace ExpressionDebugger
             else
             {
                 var name = methodName ?? "Main";
-                if (type == LambdaType.PublicMethod)
+                if (type == LambdaType.PublicMethod || type == LambdaType.ExtensionMethod)
                 {
-                    WriteModifier(true);
+                    if (!isInternal)
+                        isInternal = node.ReturnType.GetTypeInfo().IsNotPublic || node.Parameters.Any(it => it.Type.GetTypeInfo().IsNotPublic);
+                    WriteModifierNextLine(isInternal ? "internal" : "public");
                     this.Methods[name] = node.Type;
                 }
                 else
                 {
                     name = GetName(node, name);
-                    WriteModifier(false);
+                    WriteModifierNextLine("private");
                 }
                 Write(Translate(node.ReturnType), " ", name);
-                var args = VisitArguments("(", node.Parameters, VisitParameterDeclaration, ")");
+                var open = "(";
+                if (type == LambdaType.ExtensionMethod)
+                {
+                    if (this.Definitions?.IsStatic != true)
+                        throw new InvalidOperationException("Extension method requires static class");
+                    if (node.Parameters.Count == 0)
+                        throw new InvalidOperationException("Extension method requires at least 1 parameter");
+                    open = "(this ";
+                }
+                var args = VisitArguments(open, node.Parameters, VisitParameterDeclaration, ")");
                 Indent();
                 var body = VisitBody(node.Body, true);
 
@@ -1804,6 +1825,9 @@ namespace ExpressionDebugger
                 var constants = _constants?.OrderBy(it => it.Value)
                     .Select(kvp => $"{Translate(kvp.Key.GetType())} {kvp.Value};")
                     .ToList();
+                var properties = _properties?
+                    .ToDictionary(it => it.Name,
+                        it => $"{Translate(it.Type)} {it.Name} {{ get; {(it.IsReadOnly ? "" : "set; ")}}}");
 
                 if (Definitions?.TypeName != null)
                 {
@@ -1811,7 +1835,8 @@ namespace ExpressionDebugger
                     {
                         var namespaces = _usings
                             .OrderBy(it => it == "System" || it.StartsWith("System.") ? 0 : 1)
-                            .ThenBy(it => it);
+                            .ThenBy(it => it)
+                            .ToList();
                         foreach (var ns in namespaces)
                         {
                             WriteNextLine("using ", ns, ";");
@@ -1822,12 +1847,14 @@ namespace ExpressionDebugger
                     {
                         var names = _typeNames.Where(kvp => GetTypeName(kvp.Key) != kvp.Value)
                             .OrderBy(kvp => kvp.Value.StartsWith("System.") ? 0 : 1)
-                            .ThenBy(kvp => kvp.Value);
+                            .ThenBy(kvp => kvp.Value)
+                            .ToList();
                         foreach (var name in names)
                         {
                             WriteNextLine("using ", name.Value, " = ", name.Key.FullName, ";");
                         }
-                        WriteLine();
+                        if (names.Count > 0)
+                            WriteLine();
                     }
                     if (Definitions.Namespace != null)
                     {
@@ -1835,7 +1862,11 @@ namespace ExpressionDebugger
                         Indent();
                     }
 
-                    WriteModifier(true);
+                    var isInternal = Definitions.IsInternal;
+                    if (!isInternal)
+                        isInternal = Definitions.Implements?.Any(it =>
+                                !it.GetTypeInfo().IsInterface && !it.GetTypeInfo().IsPublic) ?? false;
+                    WriteModifierNextLine(isInternal ? "internal" : "public");
                     Write("partial class ", Definitions.TypeName);
                     if (implements?.Any() == true)
                     {
@@ -1847,26 +1878,71 @@ namespace ExpressionDebugger
                 {
                     foreach (var constant in constants)
                     {
-                        WriteModifier(false);
+                        WriteModifierNextLine("private");
                         Write(constant);
                     }
                     WriteLine();
                 }
-                _writer.Write(temp);
-                if (_appendWriters != null)
+                if (_properties != null && Definitions?.TypeName != null)
                 {
-                    foreach (var item in _appendWriters)
+                    foreach (var property in _properties)
                     {
-                        _writer.Write(item);
+                        var isInternal = property.Type.GetTypeInfo().IsNotPublic;
+                        WriteModifierNextLine(isInternal ? "internal" : "public");
+                        Write(properties![property.Name]);
+                    }
+                    WriteLine();
+
+                    var parameters = _properties.Where(it => it.IsReadOnly).ToList();
+                    if (parameters.Count > 0 && !Definitions.IsStatic)
+                    {
+                        var isInternal = parameters.Any(it => it.Type.GetTypeInfo().IsNotPublic);
+                        WriteModifierNextLine(isInternal ? "internal" : "public");
+                        Write(Definitions.TypeName, "(");
+                        for (var i = 0; i < parameters.Count; i++)
+                        {
+                            var parameter = parameters[i];
+                            if (i > 0)
+                                Write(", ");
+                            Write($"{Translate(parameter.Type)} {char.ToLower(parameter.Name[0]) + parameter.Name.Substring(1)}");
+                        }
+                        Write(")");
+                        Indent();
+                        foreach (var parameter in parameters)
+                        {
+                            WriteNextLine("this.", parameter.Name, " = ", char.ToLower(parameter.Name[0]).ToString(), parameter.Name.Substring(1), ";");
+                        }
+                        Outdent();
+                        WriteLine();
                     }
                 }
+
+                var sb = _writer.GetStringBuilder();
+                if (temp.GetStringBuilder().Length > 0)
+                {
+                    _writer.Write(temp);
+                    if (_appendWriters != null)
+                    {
+                        foreach (var item in _appendWriters)
+                        {
+                            _writer.Write(item);
+                        }
+                    }
+                }
+                else
+                {
+                    sb.Length = sb.FindEndIndex();
+                }
+
                 if (Definitions?.TypeName != null)
                 {
                     Outdent();
                     if (Definitions?.Namespace != null)
                         Outdent();
                 }
-                return _writer.ToString();
+
+                int wsCount = sb.FindStartIndex();
+                return sb.ToString(wsCount, sb.Length - wsCount);
             }
             finally
             {
@@ -1881,6 +1957,7 @@ namespace ExpressionDebugger
             PublicLambda,
             PrivateMethod,
             PrivateLambda,
+            ExtensionMethod,
         }
     }
 }

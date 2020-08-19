@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Text;
 
 namespace ExpressionDebugger
 {
@@ -29,5 +30,31 @@ namespace ExpressionDebugger
             return (T)type.GetTypeInfo().GetCustomAttributes(typeof(T), true).SingleOrDefault();
         }
 #endif
+
+        public static int FindStartIndex(this StringBuilder sb)
+        {
+            int wsCount = 0;
+            for (int i = 0; i < sb.Length; i++)
+            {
+                if (char.IsWhiteSpace(sb[i]))
+                    wsCount++;
+                else
+                    break;
+            }
+            return wsCount;
+        }
+
+        public static int FindEndIndex(this StringBuilder sb)
+        {
+            int wsCount = 0;
+            for (int i = sb.Length - 1; i >= 0; i--)
+            {
+                if (char.IsWhiteSpace(sb[i]))
+                    wsCount++;
+                else
+                    break;
+            }
+            return sb.Length - wsCount;
+        }
     }
 }

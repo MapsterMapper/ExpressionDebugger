@@ -19,7 +19,7 @@ namespace ExpressionDebugger.Tests
 public int Main(int a, int b)
 {
     return a + b;
-}"
+}".Trim()
                 , str);
         }
 
@@ -40,7 +40,7 @@ public int Main(int a, int b)
 public int Main(int[] a)
 {
     return a[0];
-}"
+}".Trim()
                 , str);
         }
 
@@ -53,7 +53,7 @@ public int Main(int[] a)
             Assert.AreEqual(@"
 int p1;
 
-p1 + p1;", str);
+p1 + p1;".Trim(), str);
         }
 
         [TestMethod]
@@ -65,7 +65,7 @@ p1 + p1;", str);
 public int Main(int a)
 {
     return a < 0 ? a - 1 : a + 1;
-}"
+}".Trim()
                 , str);
         }
 
@@ -86,7 +86,7 @@ if (1 == 2)
 else
 {
     3;
-}"
+}".Trim()
             , str);
         }
 
@@ -115,7 +115,7 @@ else if (5 == 6)
 else
 {
     2;
-}"
+}".Trim()
             , str);
         }
 
@@ -128,7 +128,7 @@ else
 public char Main(string s)
 {
     return s == ""x"" || s == @""\"" || s == null || s.IsNormalized() == false || s.GetType() == typeof(string) ? 'x' : s[0];
-}"
+}".Trim()
                 , str);
 
             Expression<Func<string>> fn2 = () => 1f.ToString() + 2m.ToString() + ((byte)1).ToString() + DayOfWeek.Friday.ToString() + default(DateTime).ToString();
@@ -137,7 +137,7 @@ public char Main(string s)
 public string Main()
 {
     return 1f.ToString() + 2m.ToString() + ((byte)1).ToString() + DayOfWeek.Friday.ToString() + default(DateTime).ToString();
-}"
+}".Trim()
                 , str2);
         }
 
@@ -149,7 +149,7 @@ public string Main()
             var script = expr.ToScript();
             Assert.AreEqual(@"
 private DateTime DateTime1;
-DateTime1", script);
+DateTime1".Trim(), script);
         }
 
 //        [TestMethod]
@@ -224,7 +224,7 @@ DateTime1", script);
         {
             var exp = Expression.Default(typeof(int));
             var str = exp.ToScript();
-            Assert.AreEqual(@"default(int)", str);
+            Assert.AreEqual("default(int)", str);
         }
 
         [TestMethod]
@@ -236,7 +236,7 @@ DateTime1", script);
 public int Main(int x)
 {
     return -(-x) + 1 + x - (1 - x);
-}"
+}".Trim()
                 , str);
         }
 
@@ -287,7 +287,7 @@ func1(1) + func1(1);
 private int func1(int p1)
 {
     return p1 + 1;
-}"
+}".Trim()
                 , str);
         }
 
@@ -300,7 +300,7 @@ private int func1(int p1)
 public IQueryable<int> Main(IQueryable<int> q)
 {
     return q.Where<int>(it => it > 0);
-}"
+}".Trim()
                 , str);
         }
 
@@ -313,7 +313,7 @@ public IQueryable<int> Main(IQueryable<int> q)
 public List<int> Main()
 {
     return new List<int>() {1, 2, 3};
-}"
+}".Trim()
                 , str);
         }
 
@@ -330,7 +330,7 @@ public List<int> Main()
 public Dictionary<int, int> Main()
 {
     return new Dictionary<int, int>() {{1, 2}, {3, 4}};
-}"
+}".Trim()
                 , str);
         }
 
@@ -367,7 +367,7 @@ while (p1 >= 1)
         p1--;
         continue;
     }
-}"
+}".Trim()
             , str);
         }
 
@@ -384,7 +384,7 @@ while (true)
 {
     goto label1;
 }
-label1:"
+label1:".Trim()
                 , str);
         }
 
@@ -397,7 +397,7 @@ label1:"
 public int Main()
 {
     return DateTime.Now.Day;
-}"
+}".Trim()
                 , str);
         }
 
@@ -427,7 +427,7 @@ public DebugInfoInjectorTest.Poco Main()
         Parent = {Name = ""2""},
         Children = {new DebugInfoInjectorTest.Poco(), new DebugInfoInjectorTest.Poco()}
     };
-}"
+}".Trim()
                 , str);
         }
 
@@ -440,7 +440,7 @@ public DebugInfoInjectorTest.Poco Main()
 public int Main(Dictionary<int, int> dict)
 {
     return dict[0];
-}"
+}".Trim()
                 , str);
         }
 
@@ -453,7 +453,7 @@ public int Main(Dictionary<int, int> dict)
 public string Main(List<int> list)
 {
     return list.ToString();
-}"
+}".Trim()
                 , str);
         }
 
@@ -466,7 +466,7 @@ public string Main(List<int> list)
 public int Main(int a, int b)
 {
     return Math.Max(a, b);
-}"
+}".Trim()
                 , str);
         }
 
@@ -479,7 +479,7 @@ public int Main(int a, int b)
 public int[] Main(int i)
 {
     return new int[] {i};
-}"
+}".Trim()
                 , str);
         }
 
@@ -492,7 +492,7 @@ public int[] Main(int i)
 public int[] Main(int i)
 {
     return new int[i];
-}"
+}".Trim()
                 , str);
         }
 
@@ -505,7 +505,7 @@ public int[] Main(int i)
 public int Main(int? @null)
 {
     return @null.Value;
-}"
+}".Trim()
                 , str);
         }
 
@@ -527,7 +527,7 @@ switch (p1)
     default:
         0;
         break;
-}"
+}".Trim()
                 , str);
         }
 
@@ -559,7 +559,7 @@ catch (DivideByZeroException p2) when (true)
 finally
 {
     throw new NotSupportedException();
-}"
+}".Trim()
         , str);
         }
 
@@ -583,7 +583,7 @@ finally
     {
         ""blah"";
     }
-}"
+}".Trim()
                 , str);
         }
 
@@ -596,7 +596,7 @@ finally
 public bool Main(object o)
 {
     return o is Array;
-}"
+}".Trim()
                 , str);
         }
 
@@ -609,7 +609,7 @@ public bool Main(object o)
 public int Main(double d)
 {
     return (int)d;
-}"
+}".Trim()
                 , str);
         }
 
@@ -622,7 +622,7 @@ public int Main(double d)
 public int Main(int[] a)
 {
     return a.Length;
-}"
+}".Trim()
                 , str);
         }
 
@@ -635,7 +635,7 @@ public int Main(int[] a)
 public Expression Main(Expression expr)
 {
     return expr as UnaryExpression;
-}"
+}".Trim()
                 , str);
         }
 
@@ -659,7 +659,6 @@ public Expression Main(Expression expr)
             Assert.AreEqual(@"
 using System;
 
-
 namespace ExpressionDebugger.Tests
 {
     public static partial class MockClass
@@ -671,7 +670,7 @@ namespace ExpressionDebugger.Tests
             return GetInternal1.Invoke();
         }
     }
-}"
+}".Trim()
                 , str);
         }
 
@@ -685,7 +684,73 @@ public Expression<Func<DebugInfoInjectorTest.Data, DebugInfoInjectorTest.Data>> 
 {
     Id = data.Id + ""1"",
     Records = data.Records.Select<int, int>(it => it + 1)
-};", str);
+};".Trim(), str);
+        }
+
+        [TestMethod]
+        public void TestExtensionMethod()
+        {
+            var p1 = Expression.Parameter(typeof(int));
+            var p2 = Expression.Parameter(typeof(int));
+            var lambda = Expression.Lambda<Func<int, int, int>>(
+                Expression.Add(p1, p2),
+                p1, p2);
+            var translator = new ExpressionTranslator(new TypeDefinitions
+            {
+                IsStatic = true,
+                Namespace = "ExpressionDebugger.Tests",
+                TypeName = "MockClass"
+            });
+            translator.VisitLambda(lambda, ExpressionTranslator.LambdaType.ExtensionMethod, "Add");
+            var str = translator.ToString();
+            Assert.AreEqual(@"
+namespace ExpressionDebugger.Tests
+{
+    public static partial class MockClass
+    {
+        public static int Add(this int p1, int p2)
+        {
+            return p1 + p2;
+        }
+    }
+}".Trim(), str);
+        }
+
+        [TestMethod]
+        public void TestProperties()
+        {
+            var translator = new ExpressionTranslator(new TypeDefinitions
+            {
+                IsStatic = false,
+                Namespace = "ExpressionDebugger.Tests",
+                TypeName = "MockClass"
+            });
+            translator.Properties.Add(new PropertyDefinitions
+            {
+                Name = "Prop1",
+                Type = typeof(string)
+            });
+            translator.Properties.Add(new PropertyDefinitions
+            {
+                Name = "Prop2",
+                Type = typeof(string),
+                IsReadOnly = true
+            });
+            var str = translator.ToString();
+            Assert.AreEqual(@"
+namespace ExpressionDebugger.Tests
+{
+    public partial class MockClass
+    {
+        public string Prop1 { get; set; }
+        public string Prop2 { get; }
+        
+        public MockClass(string prop2)
+        {
+            this.Prop2 = prop2;
+        }
+    }
+}".Trim(), str);
         }
 
         public class Data

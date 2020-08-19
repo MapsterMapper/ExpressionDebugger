@@ -12,9 +12,11 @@
     <SignAssembly>True</SignAssembly>
     <PublicSign Condition=" '$(OS)' != 'Windows_NT' ">true</PublicSign>
     <AssemblyOriginatorKeyFile>ExpressionTranslator.snk</AssemblyOriginatorKeyFile>
-    <Version>2.2.0</Version>
+    <Version>2.3.1</Version>
     <RootNamespace>ExpressionDebugger</RootNamespace>
-    <PackageLicenseUrl>https://github.com/chaowlert/ExpressionDebugger/blob/master/LICENSE</PackageLicenseUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageIcon>icon.png</PackageIcon>
+    <PackageLicenseUrl></PackageLicenseUrl>
     <LangVersion>8.0</LangVersion>
     <Nullable>enable</Nullable>
   </PropertyGroup>
@@ -29,5 +31,9 @@
 
   <ItemGroup Condition=" '$(TargetFramework)' == 'netstandard1.3' ">	
     <PackageReference Include="System.Reflection.TypeExtensions" Version="4.3.0" />	
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="icon.png" Pack="true" PackagePath="\" />
   </ItemGroup>
 </Project>
