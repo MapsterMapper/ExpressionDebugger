@@ -399,7 +399,7 @@ namespace ExpressionDebugger
             return node.Update(left, node.Conversion, right);
         }
 
-        private string Translate(Type type)
+        public string Translate(Type type)
         {
             if (type == typeof(bool))
                 return "bool";
@@ -457,7 +457,12 @@ namespace ExpressionDebugger
                 name = GetTypeName(type);
                 var count = this.TypeNames.Count(kvp => GetTypeName(kvp.Key) == name);
                 if (count > 0)
-                    name += count + 1;
+                {
+                    if (!type.GetTypeInfo().IsGenericType)
+                        name += count + 1;
+                    else if (!string.IsNullOrEmpty(type.Namespace))
+                        name = type.Namespace + '.' + name;
+                }
                 else if (!string.IsNullOrEmpty(type.Namespace))
                     _usings.Add(type.Namespace);
                 this.TypeNames.Add(type, name);
@@ -480,7 +485,7 @@ namespace ExpressionDebugger
             if (type.DeclaringType == null)
                 return name;
 
-            return GetTypeName(type.DeclaringType) + "." + name;
+            return Translate(type.DeclaringType) + "." + name;
         }
 
         private string GetSingleTypeName(Type type)
@@ -1845,9 +1850,9 @@ namespace ExpressionDebugger
                     }
                     if (_typeNames != null)
                     {
-                        var names = _typeNames.Where(kvp => GetTypeName(kvp.Key) != kvp.Value)
-                            .OrderBy(kvp => kvp.Value.StartsWith("System.") ? 0 : 1)
-                            .ThenBy(kvp => kvp.Value)
+                        var names = _typeNames
+                            .Where(kvp => !kvp.Value.Contains('.') && GetTypeName(kvp.Key) != kvp.Value)
+                            .OrderBy(kvp => kvp.Value)
                             .ToList();
                         foreach (var name in names)
                         {
