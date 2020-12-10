@@ -10,5 +10,6 @@ namespace ExpressionDebugger
         public bool IsStatic { get; set; }
         public bool IsInternal { get; set; }
         public IEnumerable<Type>? Implements { get; set; }
+        public bool PrintFullTypeName { get; set; }
     }
 }

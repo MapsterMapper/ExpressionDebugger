@@ -215,7 +215,7 @@ namespace ExpressionDebugger
         private Expression Visit(string open, Expression node, params string[] end)
         {
             Write(open);
-            var result = Visit(node);
+            var result = Visit(node)!;
             Write(end);
             return result;
         }
@@ -245,7 +245,7 @@ namespace ExpressionDebugger
         {
             WriteLine();
             Write(open);
-            var result = Visit(node);
+            var result = Visit(node)!;
             Write(end);
             return result;
         }
@@ -297,7 +297,7 @@ namespace ExpressionDebugger
             }
             else
             {
-                result = Visit(node);
+                result = Visit(node)!;
             }
 
             return result;
@@ -384,9 +384,9 @@ namespace ExpressionDebugger
                     Write(" = ");
                 }
                 Write(Translate(typeof(Math)), ".Pow(");
-                left = Visit(node.Left);
+                left = Visit(node.Left)!;
                 Write(", ");
-                right = Visit(node.Right);
+                right = Visit(node.Right)!;
                 Write(")");
             }
             else
@@ -444,7 +444,7 @@ namespace ExpressionDebugger
             if (type.IsArray)
             {
                 var rank = type.GetArrayRank();
-                return Translate(type.GetElementType()) + "[" + new string(',', rank - 1) + "]";
+                return Translate(type.GetElementType()!) + "[" + new string(',', rank - 1) + "]";
             }
 
             var underlyingType = Nullable.GetUnderlyingType(type);
@@ -455,16 +455,20 @@ namespace ExpressionDebugger
             if (!this.TypeNames.TryGetValue(type, out var name))
             {
                 name = GetTypeName(type);
-                var count = this.TypeNames.Count(kvp => GetTypeName(kvp.Key) == name);
-                if (count > 0)
+
+                if (Definitions?.PrintFullTypeName != true)
                 {
-                    if (!type.GetTypeInfo().IsGenericType)
-                        name += count + 1;
+                    var count = this.TypeNames.Count(kvp => GetTypeName(kvp.Key) == name);
+                    if (count > 0)
+                    {
+                        if (!type.GetTypeInfo().IsGenericType)
+                            name += count + 1;
+                        else if (!string.IsNullOrEmpty(type.Namespace))
+                            name = type.Namespace + '.' + name;
+                    }
                     else if (!string.IsNullOrEmpty(type.Namespace))
-                        name = type.Namespace + '.' + name;
+                        _usings.Add(type.Namespace);
                 }
-                else if (!string.IsNullOrEmpty(type.Namespace))
-                    _usings.Add(type.Namespace);
                 this.TypeNames.Add(type, name);
             }
 
@@ -490,23 +494,24 @@ namespace ExpressionDebugger
 
         private string GetSingleTypeName(Type type)
         {
-            if (type.GetTypeInfo().IsGenericType)
+            var name = type.DeclaringType == null && Definitions?.PrintFullTypeName == true 
+                ? type.FullName! 
+                : type.Name;
+            if (!type.GetTypeInfo().IsGenericType)
             {
-                var name = type.Name;
-                var index = name.IndexOf('`');
-                if (index >= 0)
-                    name = name.Substring(0, index);
-                if (type.GetTypeInfo().IsGenericTypeDefinition)
-                {
-                    var typeArgs = type.GetGenericArguments();
-                    return name + "<" + new string(',', typeArgs.Length - 1) + ">";
-                }
-                return name + "<" + string.Join(", ", type.GetGenericArguments().Select(Translate)) + ">";
+                return name;
             }
-            else
+
+            var index = name.IndexOf('`');
+            if (index >= 0)
+                name = name.Substring(0, index);
+            if (type.GetTypeInfo().IsGenericTypeDefinition)
             {
-                return type.Name;
+                var typeArgs = type.GetGenericArguments();
+                return name + "<" + new string(',', typeArgs.Length - 1) + ">";
             }
+
+            return name + "<" + string.Join(", ", type.GetGenericArguments().Select(Translate)) + ">";
         }
 
         private static bool IsInline(Expression node)
@@ -551,7 +556,7 @@ namespace ExpressionDebugger
                 //case ExpressionType.Goto:
                 //case ExpressionType.Loop:
                 default:
-                    return Visit(node);
+                    return Visit(node)!;
             }
         }
 
@@ -586,7 +591,7 @@ namespace ExpressionDebugger
                 {
                     if (shouldReturn && i == last && expr.NodeType != ExpressionType.Throw)
                         Write("return ");
-                    next = Visit(expr);
+                    next = Visit(expr)!;
                     Write(";");
                 }
                 else
@@ -682,7 +687,7 @@ namespace ExpressionDebugger
         private Expression VisitConditionalBlock(ConditionalExpression node, bool shouldReturn, bool chain = false)
         {
             WriteNextLine(chain ? "else if (" : "if (");
-            Expression test = Visit(node.Test);
+            var test = Visit(node.Test)!;
             Write(")");
             Indent();
             Expression ifTrue = VisitBody(node.IfTrue, shouldReturn);
@@ -1076,20 +1081,20 @@ namespace ExpressionDebugger
             }
             else
             {
-                Write(Translate(member.DeclaringType), ".", member.Name);
+                Write(Translate(member.DeclaringType!), ".", member.Name);
                 return null;
             }
         }
 
         protected override Expression VisitIndex(IndexExpression node)
         {
-            var obj = node.Indexer != null && node.Indexer.DeclaringType.GetCustomAttribute<DefaultMemberAttribute>()?.MemberName != node.Indexer.Name
+            var obj = node.Indexer != null && node.Indexer.DeclaringType!.GetCustomAttribute<DefaultMemberAttribute>()?.MemberName != node.Indexer.Name
                 ? VisitMember(node.Object, node, node.Indexer)
                 : VisitGroup(node.Object, node.NodeType);
 
             var args = VisitArguments("[", node.Arguments, Visit, "]");
 
-            return node.Update(obj, args);
+            return node.Update(obj!, args);
         }
 
         protected override Expression VisitInvocation(InvocationExpression node)
@@ -1254,7 +1259,7 @@ namespace ExpressionDebugger
 
         protected override Expression VisitListInit(ListInitExpression node)
         {
-            var @new = (NewExpression)Visit(node.NewExpression);
+            var @new = (NewExpression)Visit(node.NewExpression)!;
             var args = VisitElements(node.Initializers, VisitElementInit);
             return node.Update(@new, args);
         }
@@ -1269,7 +1274,7 @@ namespace ExpressionDebugger
                 if (condExpr.IfFalse is GotoExpression @break && @break.Target == node.BreakLabel)
                 {
                     WriteNextLine("while (");
-                    var test = Visit(condExpr.Test);
+                    var test = Visit(condExpr.Test)!;
                     Write(")");
                     Indent();
                     body = VisitBody(condExpr.IfTrue);
@@ -1294,20 +1299,20 @@ namespace ExpressionDebugger
 
         protected override Expression VisitMember(MemberExpression node)
         {
-            var expr = VisitMember(node.Expression, node, node.Member);
+            var expr = VisitMember(node.Expression, node, node.Member)!;
             return node.Update(expr);
         }
 
         protected override MemberAssignment VisitMemberAssignment(MemberAssignment node)
         {
             Write(node.Member.Name, " = ");
-            var expr = Visit(node.Expression);
+            var expr = Visit(node.Expression)!;
             return node.Update(expr);
         }
 
         protected override Expression VisitMemberInit(MemberInitExpression node)
         {
-            var @new = (NewExpression)Visit(node.NewExpression);
+            var @new = (NewExpression)Visit(node.NewExpression)!;
             var args = VisitElements(node.Bindings, VisitMemberBinding);
             return node.Update(@new, args);
         }
@@ -1401,7 +1406,7 @@ namespace ExpressionDebugger
             var obj = node.Object;
             if (obj != null)
             {
-                obj = VisitGroup(node.Object, node.NodeType);
+                obj = VisitGroup(node.Object!, node.NodeType);
             }
 #if !NET40
             else if (!node.Method.IsPublic || node.Method.DeclaringType?.GetTypeInfo().IsNotPublic == true)
@@ -1428,7 +1433,7 @@ namespace ExpressionDebugger
 
             if (node.Method.IsSpecialName && node.Method.Name.StartsWith("get_"))
             {
-                var attr = node.Method.DeclaringType.GetCustomAttribute<DefaultMemberAttribute>();
+                var attr = node.Method.DeclaringType!.GetCustomAttribute<DefaultMemberAttribute>();
                 if (attr?.MemberName == node.Method.Name.Substring(4))
                 {
                     var keys = VisitArguments("[", node.Arguments, Visit, "]");
@@ -1639,7 +1644,7 @@ namespace ExpressionDebugger
         private Expression VisitSwitch(SwitchExpression node, bool shouldReturn)
         {
             WriteNextLine("switch (");
-            var value = Visit(node.SwitchValue);
+            var value = Visit(node.SwitchValue)!;
             Write(")");
             Indent();
 
@@ -1856,7 +1861,7 @@ namespace ExpressionDebugger
                             .ToList();
                         foreach (var name in names)
                         {
-                            WriteNextLine("using ", name.Value, " = ", name.Key.FullName, ";");
+                            WriteNextLine("using ", name.Value, " = ", name.Key.FullName!, ";");
                         }
                         if (names.Count > 0)
                             WriteLine();
