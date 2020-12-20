@@ -1424,7 +1424,11 @@ namespace ExpressionDebugger
             {
                 isExtension = true;
                 arg0 = VisitGroup(node.Arguments[0], node.NodeType);
-                Translate(node.Method.DeclaringType!);   //execute type without print
+                if (!string.IsNullOrEmpty(node.Method.DeclaringType?.Namespace))
+                {
+                    _usings ??= new HashSet<string>();
+                    _usings.Add(node.Method.DeclaringType!.Namespace);
+                }
             }
             else if (node.Method.DeclaringType != null)
             {
