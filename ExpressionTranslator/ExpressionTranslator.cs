@@ -1841,7 +1841,8 @@ namespace ExpressionDebugger
                     .ToList();
                 var properties = _properties?
                     .ToDictionary(it => it.Name,
-                        it => $"{Translate(it.Type)} {it.Name} {{ get; {(it.IsReadOnly ? "" : "set; ")}}}");
+                        it => $"{Translate(it.Type)} {it.Name} {{ get; {(it.IsReadOnly ? "" : it.IsInitOnly ? "init; " : "set; ")}}}");
+                var ctorParams = _properties?.Where(it => it.IsReadOnly).ToList();
 
                 if (Definitions?.TypeName != null)
                 {
@@ -1881,7 +1882,11 @@ namespace ExpressionDebugger
                         isInternal = Definitions.Implements?.Any(it =>
                                 !it.GetTypeInfo().IsInterface && !it.GetTypeInfo().IsPublic) ?? false;
                     WriteModifierNextLine(isInternal ? "internal" : "public");
-                    Write("partial class ", Definitions.TypeName);
+                    Write("partial ", Definitions.IsRecordType ? "record " : "class ", Definitions.TypeName);
+                    if (Definitions.IsRecordType && ctorParams?.Count > 0)
+                    {
+                        WriteCtorParams(ctorParams);
+                    }
                     if (implements?.Any() == true)
                     {
                         Write(" : ", string.Join(", ", implements));
@@ -1901,28 +1906,22 @@ namespace ExpressionDebugger
                 {
                     foreach (var property in _properties)
                     {
+                        if (Definitions.IsRecordType && property.IsReadOnly)
+                            continue;
                         var isInternal = property.Type.GetTypeInfo().IsNotPublic;
                         WriteModifierNextLine(isInternal ? "internal" : "public");
                         Write(properties![property.Name]);
                     }
                     WriteLine();
 
-                    var parameters = _properties.Where(it => it.IsReadOnly).ToList();
-                    if (parameters.Count > 0 && !Definitions.IsStatic)
+                    if (ctorParams?.Count > 0 && !Definitions.IsRecordType)
                     {
-                        var isInternal = parameters.Any(it => it.Type.GetTypeInfo().IsNotPublic);
+                        var isInternal = ctorParams.Any(it => it.Type.GetTypeInfo().IsNotPublic);
                         WriteModifierNextLine(isInternal ? "internal" : "public");
-                        Write(Definitions.TypeName, "(");
-                        for (var i = 0; i < parameters.Count; i++)
-                        {
-                            var parameter = parameters[i];
-                            if (i > 0)
-                                Write(", ");
-                            Write($"{Translate(parameter.Type)} {char.ToLower(parameter.Name[0]) + parameter.Name.Substring(1)}");
-                        }
-                        Write(")");
+                        Write(Definitions.TypeName);
+                        WriteCtorParams(ctorParams);
                         Indent();
-                        foreach (var parameter in parameters)
+                        foreach (var parameter in ctorParams)
                         {
                             WriteNextLine("this.", parameter.Name, " = ", char.ToLower(parameter.Name[0]).ToString(), parameter.Name.Substring(1), ";");
                         }
@@ -1963,6 +1962,19 @@ namespace ExpressionDebugger
                 _writer = temp;
                 _indentLevel = oldIndent;
             }
+        }
+
+        private void WriteCtorParams(List<PropertyDefinitions> ctorParams)
+        {
+            Write("(");
+            for (var i = 0; i < ctorParams.Count; i++)
+            {
+                var parameter = ctorParams[i];
+                if (i > 0)
+                    Write(", ");
+                Write($"{Translate(parameter.Type)} {char.ToLower(parameter.Name[0]) + parameter.Name.Substring(1)}");
+            }
+            Write(")");
         }
 
         public enum LambdaType

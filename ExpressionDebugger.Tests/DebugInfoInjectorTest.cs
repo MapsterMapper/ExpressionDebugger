@@ -736,6 +736,12 @@ namespace ExpressionDebugger.Tests
                 Type = typeof(string),
                 IsReadOnly = true
             });
+            translator.Properties.Add(new PropertyDefinitions
+            {
+                Name = "Prop3",
+                Type = typeof(string),
+                IsInitOnly = true
+            });
             var str = translator.ToString();
             Assert.AreEqual(@"
 namespace ExpressionDebugger.Tests
@@ -744,11 +750,52 @@ namespace ExpressionDebugger.Tests
     {
         public string Prop1 { get; set; }
         public string Prop2 { get; }
+        public string Prop3 { get; init; }
         
         public MockClass(string prop2)
         {
             this.Prop2 = prop2;
         }
+    }
+}".Trim(), str);
+        }
+
+        
+        [TestMethod]
+        public void TestRecordType()
+        {
+            var translator = new ExpressionTranslator(new TypeDefinitions
+            {
+                IsStatic = false,
+                Namespace = "ExpressionDebugger.Tests",
+                TypeName = "MockClass",
+                IsRecordType = true,
+            });
+            translator.Properties.Add(new PropertyDefinitions
+            {
+                Name = "Prop1",
+                Type = typeof(string)
+            });
+            translator.Properties.Add(new PropertyDefinitions
+            {
+                Name = "Prop2",
+                Type = typeof(string),
+                IsReadOnly = true
+            });
+            translator.Properties.Add(new PropertyDefinitions
+            {
+                Name = "Prop3",
+                Type = typeof(string),
+                IsInitOnly = true
+            });
+            var str = translator.ToString();
+            Assert.AreEqual(@"
+namespace ExpressionDebugger.Tests
+{
+    public partial record MockClass(string prop2)
+    {
+        public string Prop1 { get; set; }
+        public string Prop3 { get; init; }
     }
 }".Trim(), str);
         }
