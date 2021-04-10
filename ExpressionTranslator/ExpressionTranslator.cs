@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 #if !NETSTANDARD1_3
 using System.Dynamic;
@@ -399,7 +401,32 @@ namespace ExpressionDebugger
             return node.Update(left, node.Conversion, right);
         }
 
+        private byte? _nilCtx;
+        private byte[]? _nil;
+        private int _nilIndex;
+        private string TranslateNullable(Type type, byte? nullableContext, byte[]? nullable)
+        {
+            try
+            {
+                _nilCtx = nullableContext;
+                _nil = nullable;
+                _nilIndex = 0;
+                return Translate(type);
+            }
+            finally
+            {
+                _nilCtx = null;
+                _nil = null;
+            }
+        }
         public string Translate(Type type)
+        {
+            var refNullable = !type.GetTypeInfo().IsValueType &&
+                              (_nilCtx == 2 || _nilIndex < _nil?.Length && _nil[_nilIndex++] == 2);
+            var typeName = TranslateInner(type);
+            return refNullable ? $"{typeName}?" : typeName;
+        }
+        private string TranslateInner(Type type)
         {
             if (type == typeof(bool))
                 return "bool";
@@ -452,7 +479,15 @@ namespace ExpressionDebugger
                 return Translate(underlyingType) + "?";
 
             _usings ??= new HashSet<string>();
-            if (!this.TypeNames.TryGetValue(type, out var name))
+
+            string name;
+            if (_nilCtx != null || _nil != null)
+            {
+                name = GetTypeName(type);
+                if (Definitions?.PrintFullTypeName != true && !string.IsNullOrEmpty(type.Namespace))
+                    _usings.Add(type.Namespace);
+            }
+            else if (!this.TypeNames.TryGetValue(type, out name))
             {
                 name = GetTypeName(type);
 
@@ -461,6 +496,8 @@ namespace ExpressionDebugger
                     var count = this.TypeNames.Count(kvp => GetTypeName(kvp.Key) == name);
                     if (count > 0)
                     {
+                        // NOTE: type alias cannot solve all name conflicted case, user should use PrintFullTypeName
+                        // keep logic here for compatability
                         if (!type.GetTypeInfo().IsGenericType)
                             name += count + 1;
                         else if (!string.IsNullOrEmpty(type.Namespace))
@@ -489,7 +526,7 @@ namespace ExpressionDebugger
             if (type.DeclaringType == null)
                 return name;
 
-            return Translate(type.DeclaringType) + "." + name;
+            return TranslateInner(type.DeclaringType) + "." + name;
         }
 
         private string GetSingleTypeName(Type type)
@@ -1841,9 +1878,8 @@ namespace ExpressionDebugger
                     .ToList();
                 var properties = _properties?
                     .ToDictionary(it => it.Name,
-                        it => $"{Translate(it.Type)} {it.Name} {{ get; {(it.IsReadOnly ? "" : it.IsInitOnly ? "init; " : "set; ")}}}");
+                        it => $"{TranslateNullable(it.Type, it.NullableContext ?? Definitions?.NullableContext, it.Nullable)} {it.Name} {{ get; {(it.IsReadOnly ? "" : it.IsInitOnly ? "init; " : "set; ")}}}");
                 var ctorParams = _properties?.Where(it => it.IsReadOnly).ToList();
-
                 if (Definitions?.TypeName != null)
                 {
                     if (_usings != null)
@@ -1858,6 +1894,9 @@ namespace ExpressionDebugger
                         }
                         WriteLine();
                     }
+
+                    // NOTE: type alias cannot solve all name conflicted case, user should use PrintFullTypeName
+                    // keep logic here for compatability
                     if (_typeNames != null)
                     {
                         var names = _typeNames
@@ -1871,6 +1910,7 @@ namespace ExpressionDebugger
                         if (names.Count > 0)
                             WriteLine();
                     }
+
                     if (Definitions.Namespace != null)
                     {
                         WriteNextLine("namespace ", Definitions.Namespace);
@@ -1972,7 +2012,7 @@ namespace ExpressionDebugger
                 var parameter = ctorParams[i];
                 if (i > 0)
                     Write(", ");
-                Write($"{Translate(parameter.Type)} {char.ToLower(parameter.Name[0]) + parameter.Name.Substring(1)}");
+                Write($"{TranslateNullable(parameter.Type, parameter.NullableContext ?? Definitions?.NullableContext, parameter.Nullable)} {char.ToLower(parameter.Name[0]) + parameter.Name.Substring(1)}");
             }
             Write(")");
         }

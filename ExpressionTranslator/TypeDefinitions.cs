@@ -12,5 +12,6 @@ namespace ExpressionDebugger
         public IEnumerable<Type>? Implements { get; set; }
         public bool PrintFullTypeName { get; set; }
         public bool IsRecordType { get; set; }
+        public byte? NullableContext { get; set; }
     }
 }

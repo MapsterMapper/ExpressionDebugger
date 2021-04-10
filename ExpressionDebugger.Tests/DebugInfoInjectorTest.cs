@@ -733,8 +733,9 @@ namespace ExpressionDebugger.Tests
             translator.Properties.Add(new PropertyDefinitions
             {
                 Name = "Prop2",
-                Type = typeof(string),
-                IsReadOnly = true
+                Type = typeof(List<Dictionary<int, string[]>>),
+                IsReadOnly = true,
+                Nullable = new byte[] { 1, 2, 1, 2 }
             });
             translator.Properties.Add(new PropertyDefinitions
             {
@@ -744,15 +745,17 @@ namespace ExpressionDebugger.Tests
             });
             var str = translator.ToString();
             Assert.AreEqual(@"
+using System.Collections.Generic;
+
 namespace ExpressionDebugger.Tests
 {
     public partial class MockClass
     {
         public string Prop1 { get; set; }
-        public string Prop2 { get; }
+        public List<Dictionary<int, string?[]>?> Prop2 { get; }
         public string Prop3 { get; init; }
         
-        public MockClass(string prop2)
+        public MockClass(List<Dictionary<int, string?[]>?> prop2)
         {
             this.Prop2 = prop2;
         }
