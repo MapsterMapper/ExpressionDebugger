@@ -422,7 +422,7 @@ namespace ExpressionDebugger
         public string Translate(Type type)
         {
             var refNullable = !type.GetTypeInfo().IsValueType &&
-                              (_nilCtx == 2 || _nilIndex < _nil?.Length && _nil[_nilIndex++] == 2);
+                              (_nilIndex < _nil?.Length ? _nil[_nilIndex++] == 2 : _nilCtx == 2);
             var typeName = TranslateInner(type);
             return refNullable ? $"{typeName}?" : typeName;
         }

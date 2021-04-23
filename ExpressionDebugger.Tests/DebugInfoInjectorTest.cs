@@ -723,12 +723,14 @@ namespace ExpressionDebugger.Tests
             {
                 IsStatic = false,
                 Namespace = "ExpressionDebugger.Tests",
-                TypeName = "MockClass"
+                TypeName = "MockClass",
+                NullableContext = 2,
             });
             translator.Properties.Add(new PropertyDefinitions
             {
                 Name = "Prop1",
-                Type = typeof(string)
+                Type = typeof(string),
+                NullableContext = 0,
             });
             translator.Properties.Add(new PropertyDefinitions
             {
@@ -741,7 +743,8 @@ namespace ExpressionDebugger.Tests
             {
                 Name = "Prop3",
                 Type = typeof(string),
-                IsInitOnly = true
+                IsInitOnly = true,
+                NullableContext = 0,
             });
             var str = translator.ToString();
             Assert.AreEqual(@"

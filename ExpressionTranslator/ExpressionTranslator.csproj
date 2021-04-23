@@ -12,7 +12,7 @@
     <SignAssembly>True</SignAssembly>
     <PublicSign Condition=" '$(OS)' != 'Windows_NT' ">true</PublicSign>
     <AssemblyOriginatorKeyFile>ExpressionTranslator.snk</AssemblyOriginatorKeyFile>
-    <Version>2.4.2</Version>
+    <Version>2.4.3</Version>
     <RootNamespace>ExpressionDebugger</RootNamespace>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageIcon>icon.png</PackageIcon>
@@ -31,10 +31,6 @@
 
   <ItemGroup Condition=" '$(TargetFramework)' == 'netstandard1.3' ">	
     <PackageReference Include="System.Reflection.TypeExtensions" Version="4.3.0" />	
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Remove="ExpressionTranslator.cs~RFe80e7f7.TMP" />
   </ItemGroup>
 
   <ItemGroup>
