@@ -2012,7 +2012,7 @@ namespace ExpressionDebugger
                 var parameter = ctorParams[i];
                 if (i > 0)
                     Write(", ");
-                Write($"{TranslateNullable(parameter.Type, parameter.NullableContext ?? Definitions?.NullableContext, parameter.Nullable)} {char.ToLower(parameter.Name[0]) + parameter.Name.Substring(1)}");
+                Write($"{TranslateNullable(parameter.Type, parameter.NullableContext ?? Definitions?.NullableContext, parameter.Nullable)} {((Definitions?.IsRecordType ?? false) ? parameter.Name : char.ToLower(parameter.Name[0]) + parameter.Name.Substring(1))}");
             }
             Write(")");
         }
