@@ -1,0 +1,19 @@
+<Project>
+	<PropertyGroup>
+		<!-- Properties related to build/pack -->
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+    <PropertyGroup>
+		<!-- Metadata -->
+		<Authors>chaowlert;andrerav</Authors>
+		<Copyright>Copyright (c) $([System.DateTime]::Now.ToString(`yyyy`)) Chaowlert Chaisrichalermpol, Andreas Ravnestad</Copyright>
+		<GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+		<PackageProjectUrl>https://github.com/MapsterMapper/ExpressionDebugger</PackageProjectUrl>
+		<RepositoryUrl>https://github.com/MapsterMapper/ExpressionDebugger</RepositoryUrl>
+		<PackageIcon>./icon.png</PackageIcon>
+		<PackageIconUrl>https://cloud.githubusercontent.com/assets/5763993/26522656/41e28a6e-432f-11e7-9cae-7856f927d1a1.png</PackageIconUrl>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+		<PackageTags>expression;linq;debug</PackageTags>
+        <LangVersion>10</LangVersion>	
+    </PropertyGroup>
+</Project>
